@@ -1,0 +1,13 @@
+{
+    "ros.distro": "kinetic",
+    "python.autoComplete.extraPaths": [
+        "/home/cc/ee106b/sp22/class/ee106b-abe/ros_workspaces/proj2/devel/lib/python2.7/dist-packages",
+        "/scratch/shared/baxter_ws/devel/lib/python2.7/dist-packages",
+        "/opt/ros/kinetic/lib/python2.7/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/cc/ee106b/sp22/class/ee106b-abe/ros_workspaces/proj2/devel/lib/python2.7/dist-packages",
+        "/scratch/shared/baxter_ws/devel/lib/python2.7/dist-packages",
+        "/opt/ros/kinetic/lib/python2.7/dist-packages"
+    ]
+}
