@@ -43,12 +43,13 @@ class UnicycleModelController(object):
         start_t = rospy.Time.now()
         cur_state = self.state
         self.vel_cmd = 0
+        cur_velocity = np.zeros(cur_state.shape)
         prev_t = start_t.to_sec()
 
-        self.d_est = np.zeros((0, 1))
-        self.k_est = np.zeros((0, 1))
-        self.d_goal = np.zeros((0, 1))
-        self.k_goal = np.zeros((0, 1))
+        self.d_est = np.zeros((0,))
+        self.k_est = np.zeros((0,))
+        self.d_goal = np.zeros((0,))
+        self.k_goal = np.zeros((0,))
 
         inputs_agg = []
         prev_state_change_time = prev_t
@@ -58,46 +59,56 @@ class UnicycleModelController(object):
             # dt = t - prev_t
             # prev_t = t
             dt = plan.dt
-            if t > plan.times[-1]:
+            if t < plan.times[-1]:
+                state, cmd = plan.get(t)
+                next_state, next_cmd = plan.get(t+dt)
+                prev_state, prev_cmd = plan.get(t-dt)
+            elif t < plan.times[-1] + 5:
+                cmd = cmd*0
+            else:
                 break
-            state, cmd = plan.get(t)
-            next_state, next_cmd = plan.get(t+dt)
-            prev_state, prev_cmd = plan.get(t-dt)
-            state_vel = (self.state - cur_state)/dt 
+            # state_vel = (self.state - cur_state)/dt 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
             # print("states", prev_state[0], state[0], next_state[0])
             # print("target velocity", target_velocity[0])
             # print("open loop input", cmd[0])
 
-            if self.state != cur_state:
+            if np.linalg.norm(self.state - cur_state) > 0:
+                cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
                 self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0)))
                 prev_state_change_time = t
                 self.estimate_parameters(self.buffer)
 
             cur_state = self.state
-            commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, state_vel, cmd, dt)
+            commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
             inputs_agg.append(commanded_input)
             rate.sleep()
 
-        def estimate_parameters(buffer):
-            if len(buffer) < 4:
-                return
+    def estimate_parameters(self, buffer):
+        if len(buffer) < 4:
+            return
 
-            for i in range(len(self.k_est), len(buffer)):
-                buffer_state = buffer[i]
-                xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
-                theta = (buffer_state[0] + buffer_state[1])[2] / 2
-                v, w = buffer_state[3]
-                self.d_est = np.vstack((self.d_est, np.array([v*np.cos(theta)]), np.array([v*np.sin(theta)])))
-                self.d_goal = np.vstack((self.d_goal, np.array([xdot]), np.array([ydot])))
-                self.k_est = np.vstack((self.k_est, np.array([w])))
-                self.k_goal = np.vstack((self.k_goal, np.array([theta_dot])))
+        for i in range(len(self.k_est), len(buffer)):
+            buffer_state = buffer[i]
+            xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2
+            v, w = buffer_state[3]
+            # print("v and xdot", v, xdot)
+            self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
+            self.d_goal = np.append(self.d_goal, [xdot, ydot])
+            self.k_est = np.append(self.k_est, [w])
+            self.k_goal = np.append(self.k_goal, [theta_dot])
 
-            self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)
-            self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)
+        # print(self.d_est, self.d_goal)
 
+        # self.d_est, self.d_goal, self.k_est, self.k_goal = np.squeeze(self.d_est), np.squeeze(self.d_goal), np.squeeze(self.k_est), np.squeeze(self.k_goal)
+        self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
+        self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
+        
+        print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
 
+        # print(self.d, self.k)
         # self.target_positions = np.array(self.target_positions)
         # self.actual_positions = np.array(self.actual_positions)
         # self.cmd([0, 0])
@@ -139,14 +150,14 @@ class UnicycleModelController(object):
         # print(-np.sin(theta)/v)
 
         if abs(v) > 0.01:
-            A_inv = np.array([[np.cos(theta)/self.k, np.sin(theta)/self.k],
-                            [-np.sin(theta)/(v*self.d), np.cos(theta)/(v*self.d)]])
+            A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
+                            [-np.sin(theta)/(v*self.k), np.cos(theta)/(v*self.k)]])
         else:
-            A_inv = np.array([[np.cos(theta)/self.k, np.sin(theta)/self.k],
+            A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                               [0, 0]])
 
         # Kp = 0.1 * np.eye(2)
-        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2])
+        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 0.5 * (target_velocity[:2] - cur_velocity[:2])
         # print("Target acceleration", target_acceleration[:2])
 
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
@@ -157,10 +168,11 @@ class UnicycleModelController(object):
         # print("open loop", open_loop_input)
         control_input[0] = self.vel_cmd
         self.cmd(control_input)
+        # print(control_input)
         return control_input
 
         # self.target_positions.append(target_position)
-        # self.actual_positions.append(self.state)
+        # self.actual_nppositions.append(self.state)
     
         # # get x coordinate of the point in the robot's coordinate frame
         # robot_unit_vec = np.array([np.cos(self.state[2]), np.sin(self.state[2])])

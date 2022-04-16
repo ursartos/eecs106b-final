@@ -139,7 +139,7 @@ class UnicycleConverter():
 
             # We output velocity and yaw based on the unicycle model
             output = Twist()
-            output.linear.x = self.command.linear_velocity
+            output.linear.x = self.command.linear_velocity * (1 + np.random.normal(0, 0)) * np.random.randint(0, 2)
             output.angular.z = self.command.steering_rate
 
             self.command_publisher.publish(output)
