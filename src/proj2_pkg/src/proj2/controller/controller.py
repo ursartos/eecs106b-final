@@ -24,6 +24,9 @@ class UnicycleModelController(object):
         self.state = UnicycleStateMsg()
         # self.target_positions = []
         # self.actual_positions = []
+        self.d = 1
+        self.k = 1
+        self.buffer = []
         rospy.on_shutdown(self.shutdown)
 
     def execute_plan(self, plan):
@@ -41,6 +44,15 @@ class UnicycleModelController(object):
         cur_state = self.state
         self.vel_cmd = 0
         prev_t = start_t.to_sec()
+
+        self.d_est = np.zeros((0, 1))
+        self.k_est = np.zeros((0, 1))
+        self.d_goal = np.zeros((0, 1))
+        self.k_goal = np.zeros((0, 1))
+
+        inputs_agg = []
+        prev_state_change_time = prev_t
+        
         while not rospy.is_shutdown():
             t = (rospy.Time.now() - start_t).to_sec()
             # dt = t - prev_t
@@ -57,9 +69,34 @@ class UnicycleModelController(object):
             # print("states", prev_state[0], state[0], next_state[0])
             # print("target velocity", target_velocity[0])
             # print("open loop input", cmd[0])
+
+            if self.state != cur_state:
+                self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0)))
+                prev_state_change_time = t
+                self.estimate_parameters(self.buffer)
+
             cur_state = self.state
-            self.step_control(state, target_velocity, target_acceleration, cur_state, state_vel, cmd, dt)
+            commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, state_vel, cmd, dt)
+            inputs_agg.append(commanded_input)
             rate.sleep()
+
+        def estimate_parameters(buffer):
+            if len(buffer) < 4:
+                return
+
+            for i in range(len(self.k_est), len(buffer)):
+                buffer_state = buffer[i]
+                xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
+                theta = (buffer_state[0] + buffer_state[1])[2] / 2
+                v, w = buffer_state[3]
+                self.d_est = np.vstack((self.d_est, np.array([v*np.cos(theta)]), np.array([v*np.sin(theta)])))
+                self.d_goal = np.vstack((self.d_goal, np.array([xdot]), np.array([ydot])))
+                self.k_est = np.vstack((self.k_est, np.array([w])))
+                self.k_goal = np.vstack((self.k_goal, np.array([theta_dot])))
+
+            self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)
+            self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)
+
 
         # self.target_positions = np.array(self.target_positions)
         # self.actual_positions = np.array(self.actual_positions)
@@ -102,10 +139,10 @@ class UnicycleModelController(object):
         # print(-np.sin(theta)/v)
 
         if abs(v) > 0.01:
-            A_inv = np.array([[np.cos(theta), np.sin(theta)],
-                            [-np.sin(theta)/v, np.cos(theta)/v]])
+            A_inv = np.array([[np.cos(theta)/self.k, np.sin(theta)/self.k],
+                            [-np.sin(theta)/(v*self.d), np.cos(theta)/(v*self.d)]])
         else:
-            A_inv = np.array([[np.cos(theta), np.sin(theta)],
+            A_inv = np.array([[np.cos(theta)/self.k, np.sin(theta)/self.k],
                               [0, 0]])
 
         # Kp = 0.1 * np.eye(2)
@@ -120,6 +157,7 @@ class UnicycleModelController(object):
         # print("open loop", open_loop_input)
         control_input[0] = self.vel_cmd
         self.cmd(control_input)
+        return control_input
 
         # self.target_positions.append(target_position)
         # self.actual_positions.append(self.state)
