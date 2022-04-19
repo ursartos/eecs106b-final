@@ -14,6 +14,8 @@ import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, UnicycleConfigurationSpace # SinusoidPlanner
 
+TERRAIN_DIM = 1
+
 class UnicycleModelController(object):
     def __init__(self):
         """
@@ -29,7 +31,17 @@ class UnicycleModelController(object):
         self.buffer = []
         rospy.on_shutdown(self.shutdown)
 
-    def execute_plan(self, plan):
+    def current_pos_to_terrain(self, pos, terrains):
+        terrain_vec = np.zeros(TERRAIN_DIM + 1)
+        for i, terrain in enumerate(terrains):
+            terrain_corners = terrain[0]
+            if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
+                terrain_vec[i + 1] = 1
+                return terrain_vec, terrain[1], terrain[2]
+        terrain_vec[0] = 1
+        return terrain_vec, 1, 1
+
+    def execute_plan(self, plan, terrains):
         """
         Executes a plan made by the planner
 
@@ -67,6 +79,7 @@ class UnicycleModelController(object):
                 cmd = cmd*0
             else:
                 break
+            current_terrain_vector = self.current_pos_to_terrain(state[:2], terrains)[0]
             # state_vel = (self.state - cur_state)/dt 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
@@ -76,9 +89,9 @@ class UnicycleModelController(object):
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
-                self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0)))
+                self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                 prev_state_change_time = t
-                self.estimate_parameters(self.buffer)
+                self.estimate_parameters(self.buffer, self.terrain)
 
             cur_state = self.state
             commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)

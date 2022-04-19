@@ -1,9 +1,20 @@
-from casadi import Opti, sin, cos, tan, vertcat, mtimes
+from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor
 
 import numpy as np
 import matplotlib.pyplot as plt
 
-def unicycle_robot_model(q, u, dt=0.01):
+TERRAIN_DIM = 1
+def current_pos_to_terrain(self, pos, terrains):
+    terrain_vec = np.zeros(TERRAIN_DIM + 1)
+    for i, terrain in enumerate(terrains):
+        terrain_corners = terrain[0]
+        if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
+            terrain_vec[i + 1] = 1
+            return terrain_vec, terrain[1], terrain[2]
+    terrain_vec[0] = 1
+    return terrain_vec, 1, 1
+
+def unicycle_robot_model(q, u, dt=0.01, terrains=None):
     """
     Implements the discrete time dynamics of your robot.
     i.e. this function implements F in
@@ -32,8 +43,14 @@ def unicycle_robot_model(q, u, dt=0.01):
         q = vcat([x + y, y, z]) # makes a 3x1 matrix with entries x + y, y, and z.
     """
     x,y,theta,v,omega = q[0], q[1], q[2], u[0], u[1]
+    # if terrains is None:
+    #     k, d = 1, 1
+    # else:
+    #     k, d = terrains[floor(x), floor(y)]
+    k = 1
+    d = 1
 
-    q_dot = vertcat(v*cos(theta), v*sin(theta), omega)
+    q_dot = vertcat(d*v*cos(theta), d*v*sin(theta), k*omega)
 
     return q + dt*q_dot
 
@@ -115,7 +132,7 @@ def objective_func(q, u, q_goal, Q, R, P):
     obj += term_last
     return obj
 
-def constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, L=0.3, dt=0.01):
+def constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, L=0.3, dt=0.01, terrains=None):
     """
     Constructs a list where each entry is a casadi.MX symbolic expression representing
     a constraint of our optimization problem.
@@ -162,7 +179,7 @@ def constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, L=0.3, 
         q_t   = q[:, t]
         q_tp1 = q[:, t + 1]
         u_t   = u[:, t]
-        constraints.append(q_tp1 == unicycle_robot_model(q_t, u_t)) # You should use the unicycle_robot_model function here somehow.
+        constraints.append(q_tp1 == unicycle_robot_model(q_t, u_t, terrains)) # You should use the unicycle_robot_model function here somehow.
 
     # Obstacle constraints
     for obj in obs_list:
@@ -178,7 +195,7 @@ def constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, L=0.3, 
     #     print(c, c.is_constant())
     return constraints
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0.01):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0.01, terrains=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -201,13 +218,19 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
     R = 2 * np.diag([1, 0.5])
     P = n * Q
 
-    # q0, u0 = initial_cond(q_start, q_goal, n)
+    terrain_kds = np.zeros((q_ub[0] - q_lb[0], q_ub[1] - q_lb[1], 2))
+    if terrains is not None:
+        for terrain in terrains:
+            xmin, xmax, ymin, ymax = terrain[0]
+            k, d = terrain[1:]
+            terrain_kds[xmin:xmax, ymin:ymax, :] = [k, d]
 
+    # q0, u0 = initial_cond(q_start, q_goal, n)
     obj = objective_func(q, u, q_goal, Q, R, P)
 
     opti.minimize(obj)
 
-    opti.subject_to(constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, dt=dt))
+    opti.subject_to(constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, dt=dt, terrains=terrain_kds))
 
     # opti.set_initial(q, q0)
     # opti.set_initial(u, u0)
