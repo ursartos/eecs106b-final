@@ -150,7 +150,7 @@ class ConfigurationSpace(object):
         file which inherits from this class.
     """
 
-    def __init__(self, dim, low_lims, high_lims, obstacles, dt=0.01):
+    def __init__(self, dim, low_lims, high_lims, obstacles, dt=0.01, constraints=None):
         """
         Parameters
         ----------
@@ -171,6 +171,7 @@ class ConfigurationSpace(object):
         self.low_lims = np.array(low_lims)
         self.high_lims = np.array(high_lims)
         self.obstacles = obstacles
+        self.constraints = constraints
         self.dt = dt
 
     def distance(self, c1, c2):
@@ -279,9 +280,9 @@ class UnicycleConfigurationSpace(ConfigurationSpace):
         We assume that the robot is circular and has radius equal to robot_radius
         The state of the robot is defined as (x, y, theta, phi).
     """
-    def __init__(self, low_lims, high_lims, input_low_lims, input_high_lims, obstacles, robot_radius,start,goal):
+    def __init__(self, low_lims, high_lims, input_low_lims, input_high_lims, obstacles, robot_radius,start,goal, terrains=None):
         dim = 4
-        super(UnicycleConfigurationSpace, self).__init__(dim,low_lims,high_lims,obstacles)
+        super(UnicycleConfigurationSpace, self).__init__(dim,low_lims,high_lims,obstacles, terrains=None)
         self.robot_radius = robot_radius
         self.robot_length = 0.3
         self.input_low_lims = input_low_lims
@@ -290,10 +291,6 @@ class UnicycleConfigurationSpace(ConfigurationSpace):
         self.goal = goal
         self.linear_distance = np.sqrt(((self.start[0]-self.goal[0]) ** 2) + ((self.start[1]-self.goal[1]) ** 2))
         
-        
-        
-        
-       
     
     def distance(self, c1, c2, alpha = 0.05,beta = 1, multiplier = 8):
         """
