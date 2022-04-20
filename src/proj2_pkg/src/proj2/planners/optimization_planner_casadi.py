@@ -1,4 +1,4 @@
-from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor
+from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, if_else
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -42,10 +42,20 @@ def unicycle_robot_model(q, u, dt=0.01, terrains_d=None, terrains_k=None):
         # OR
         q = vcat([x + y, y, z]) # makes a 3x1 matrix with entries x + y, y, and z.
     """
-    x,y,theta,v,omega = q[0], q[1], q[2], u[0], u[1]
-    d, k = terrains_d[floor(x), floor(y)], terrains_k[floor(x), floor(y)]
 
-    q_dot = vertcat(d*v*cos(theta), d*v*sin(theta), k*omega)
+    x,y,theta,v,omega = q[0], q[1], q[2], u[0], u[1]
+    # d, k = terrains_d[0, 0], terrains_k[0, 0]
+    # d = conditional(floor(x), terrains_d, terrains_d[0, 0], False)
+    # k = conditional(floor(x), terrains_k, terrains_k[0, 0], False)
+
+    # fx = floor(x)
+    # fy = floor(y)
+    # d, k = 1, 1
+    # d = if_else(fx, terrains_d[fx, fy], terrains_d[0, 0])
+
+    k = if_else(x < 1, MX(0.8), MX(1))
+
+    q_dot = vertcat(v*cos(theta), v*sin(theta), k*omega)
 
     return q + dt*q_dot
 
@@ -223,11 +233,8 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
     q0, u0 = initial_cond(q_start, q_goal, n)
     obj = objective_func(q, u, q_goal, Q, R, P)
 
-    terrains_d = opti.variable(*terrain_kds.shape[:2])
-    terrains_k = opti.variable(*terrain_kds.shape[:2])
-
-    opti.subject_to(terrains_k == terrain_kds[:, :, 0])
-    opti.subject_to(terrains_d == terrain_kds[:, :, 1])
+    terrains_d = MX(terrain_kds[:, :, 1])
+    terrains_k = MX(terrain_kds[:, :, 0])
 
     opti.minimize(obj)
 
