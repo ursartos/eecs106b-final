@@ -280,7 +280,7 @@ class UnicycleConfigurationSpace(ConfigurationSpace):
         We assume that the robot is circular and has radius equal to robot_radius
         The state of the robot is defined as (x, y, theta, phi).
     """
-    def __init__(self, low_lims, high_lims, input_low_lims, input_high_lims, obstacles, robot_radius,start,goal, terrains=None):
+    def __init__(self, low_lims, high_lims, input_low_lims, input_high_lims, obstacles, robot_radius,start,goal,terrains=[]):
         dim = 4
         super(UnicycleConfigurationSpace, self).__init__(dim,low_lims,high_lims,obstacles, terrains=None)
         self.robot_radius = robot_radius
@@ -290,6 +290,7 @@ class UnicycleConfigurationSpace(ConfigurationSpace):
         self.start = start
         self.goal = goal
         self.linear_distance = np.sqrt(((self.start[0]-self.goal[0]) ** 2) + ((self.start[1]-self.goal[1]) ** 2))
+        self.terrains = terrains
         
     
     def distance(self, c1, c2, alpha = 0.05,beta = 1, multiplier = 8):
