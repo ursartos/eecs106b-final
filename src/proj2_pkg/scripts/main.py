@@ -42,6 +42,10 @@ if __name__ == '__main__':
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
     obstacles = rospy.get_param("/environment/obstacles")
 
+    if not rospy.has_param("/environment/terrains"):
+        raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
+    terrains = rospy.get_param("/environment/terrains")
+
     if not rospy.has_param("/environment/low_lims"):
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
     xy_low = rospy.get_param("/environment/low_lims")
@@ -82,7 +86,7 @@ if __name__ == '__main__':
                                         [-u1_max, -u2_max],
                                         [u1_max, u2_max],
                                         obstacles,
-                                        0.15,start,goal)
+                                        0.15,start,goal,terrains=terrains)
 
     if args.planner == 'sin':
         raise ValueError("don't use sin, just don't")
