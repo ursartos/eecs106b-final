@@ -66,7 +66,7 @@ def create_yaml(png, name, resolution=0.01):
 def create_map(obstacle_list, width, height, name, resolution=0.01, terrains=[]):
 	m = create_grid(obstacle_list, width, height, resolution, terrains=terrains)
 	create_png(m, name)
-	create_yaml("{}.png".format(name), name)
+	create_yaml("{}.png".format(name), name, resolution=resolution)
 
 def make_map1():
 	obstacle1 = Obstacle(6, 3.5, 1.5)
@@ -85,7 +85,7 @@ def make_empty_map():
 	create_map([], 5, 5, "empty")
 
 def make_terrain_map():
-	create_map([], 40, 40, "terrains", terrains=[[[20, 30], [20, 30], 0.2, 0.2]])
+	create_map([], 40, 40, "terrains", terrains=[[[20, 30], [20, 30], 0.2, 0.2]], resolution=0.05)
 
 if __name__ == '__main__':
 	# make_map1()
