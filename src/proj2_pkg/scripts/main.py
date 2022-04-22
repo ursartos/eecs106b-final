@@ -62,6 +62,9 @@ if __name__ == '__main__':
         raise ValueError("No robot information loaded on parameter server. Did you run init_env.launch?")
     u1_max = rospy.get_param("/unicycle_converter/converter/max_linear_velocity")
 
+    print("INPUT LIMITS FROM ROS", u1_max, u2_max)
+    u1_max = 0.5
+
     print("Obstacles:", obstacles)
     
     controller = UnicycleModelController()
