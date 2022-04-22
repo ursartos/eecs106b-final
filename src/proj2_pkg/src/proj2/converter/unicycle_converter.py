@@ -92,6 +92,7 @@ class UnicycleConverter():
     def command_listener(self, msg):
         msg.steering_rate = max(min(msg.steering_rate, self.max_steering_rate), -self.max_steering_rate)
         msg.linear_velocity = max(min(msg.linear_velocity, self.max_linear_velocity), -self.max_linear_velocity)
+        self.true_k = msg
 
         self.command = msg
         self.last_time = rospy.Time.now() # Save the time of last command for safety
