@@ -41,7 +41,7 @@ class UnicycleModelController(object):
         terrain_vec[0] = 1
         return terrain_vec, 1, 1
 
-    def execute_plan(self, plan, terrains):
+    def execute_plan(self, plan, terrains=[]):
         """
         Executes a plan made by the planner
 
@@ -75,7 +75,7 @@ class UnicycleModelController(object):
                 state, cmd = plan.get(t)
                 next_state, next_cmd = plan.get(t+dt)
                 prev_state, prev_cmd = plan.get(t-dt)
-            elif t < plan.times[-1] + 5:
+            elif t < plan.times[-1] + 0:
                 cmd = cmd*0
             else:
                 break
@@ -91,7 +91,7 @@ class UnicycleModelController(object):
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
                 self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                 prev_state_change_time = t
-                self.estimate_parameters(self.buffer, self.terrain)
+                self.estimate_parameters(self.buffer) #, self.terrain)
 
             cur_state = self.state
             commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
@@ -107,6 +107,7 @@ class UnicycleModelController(object):
             xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
             theta = (buffer_state[0] + buffer_state[1])[2] / 2
             v, w = buffer_state[3]
+            print("xdot", xdot, "v", v)
             # print("v and xdot", v, xdot)
             self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
             self.d_goal = np.append(self.d_goal, [xdot, ydot])
@@ -119,7 +120,9 @@ class UnicycleModelController(object):
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
         
-        print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
+        print(self.d)
+        
+        # print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
 
         # print(self.d, self.k)
         # self.target_positions = np.array(self.target_positions)
@@ -171,7 +174,7 @@ class UnicycleModelController(object):
 
         # Kp = 0.1 * np.eye(2)
         taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 0.5 * (target_velocity[:2] - cur_velocity[:2])
-        # print("Target acceleration", target_acceleration[:2])
+        # print("Target acceleration", taus, target_acceleration[:2])
 
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         # print("inputs", control_input)

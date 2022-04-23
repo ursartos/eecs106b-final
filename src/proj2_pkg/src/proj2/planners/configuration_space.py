@@ -282,7 +282,7 @@ class UnicycleConfigurationSpace(ConfigurationSpace):
     """
     def __init__(self, low_lims, high_lims, input_low_lims, input_high_lims, obstacles, robot_radius,start,goal,terrains=[]):
         dim = 4
-        super(UnicycleConfigurationSpace, self).__init__(dim,low_lims,high_lims,obstacles, terrains=None)
+        super(UnicycleConfigurationSpace, self).__init__(dim,low_lims,high_lims,obstacles)
         self.robot_radius = robot_radius
         self.robot_length = 0.3
         self.input_low_lims = input_low_lims

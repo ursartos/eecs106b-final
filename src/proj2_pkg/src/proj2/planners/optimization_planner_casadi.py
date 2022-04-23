@@ -55,11 +55,12 @@ def unicycle_robot_model(q, u, dt=0.01, terrains=[]):
 
     d = MX(1)
     k = MX(1)
-    for terrain in terrains:
-        x1, y1, x2, y2 = terrain[0]
-        dter, kter = terrain[1], terrain[2]
-        d = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(dter), d)
-        k = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(kter), k)
+    # for terrain in terrains:
+    #     x1, x2 = terrain[0]
+    #     y1, y2 = terrain[1]
+    #     dter, kter = terrain[2], terrain[3]
+    #     d = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(dter), d)
+    #     k = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(kter), k)
 
     q_dot = vertcat(d*v*cos(theta), d*v*sin(theta), k*omega)
 
