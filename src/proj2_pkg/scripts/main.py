@@ -87,6 +87,7 @@ if __name__ == '__main__':
                                         [u1_max, u2_max],
                                         obstacles,
                                         0.15,start,goal,terrains=terrains)
+    args.planner = 'opt'
 
     if args.planner == 'sin':
         raise ValueError("don't use sin, just don't")
@@ -97,12 +98,12 @@ if __name__ == '__main__':
     elif args.planner == 'rrt':
         ## Edit the max_iter, expand_dist, dt and prefix_time_length arguments to your needs.
         planner = RRTPlanner(config, max_iter=5000, expand_dist=1.6)
-        plan = planner.plan_to_pose(controller.state, goal, dt=0.01, prefix_time_length=0.05)
+        plan = planner.plan_to_pose(controller.state, goal, dt=0.05, prefix_time_length=0.05)
 
     elif args.planner == 'opt':
         planner = OptimizationPlanner(config)
         ## Edit the dt and N arguments to your needs.
-        plan = planner.plan_to_pose(controller.state, goal, dt=0.01, N=850)
+        plan = planner.plan_to_pose(controller.state, goal, dt=0.01, N=900)
     
     print("Predicted Initial State")
     print(plan.start_position())

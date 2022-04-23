@@ -5,6 +5,7 @@
 
     <group if="$(eval map == 'empty.yaml')">
         <rosparam>
+            environment/terrains: []
             environment/obstacles: []
             environment/low_lims: [0, 0]
             environment/high_lims: [5, 5]
@@ -29,12 +30,13 @@
 
     <group if="$(eval map == 'terrains.yaml')">
         <rosparam>
-            environment/terrains: [[[20, 30], [20, 30], 0.2, 0.2]]
-            environment/obstacles: [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]]
+            environment/terrains: [[[4, 8], [4, 8], 0.2, 0.2]]
+            environment/obstacles: []
+            <!-- [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]] -->
             environment/low_lims: [0, 0]
-            environment/high_lims: [40, 40]
+            environment/high_lims: [10, 10]
         </rosparam>
-    </group>
+    </group>empty.yaml
 
     <group if="$(arg sim)">
         <include file="$(find stdr_robot)/launch/robot_manager.launch" />
