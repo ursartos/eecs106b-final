@@ -29,7 +29,7 @@ class PointcloudProcess:
     Wraps the processing of a pointcloud from an input ros topic and publishing
     to another PointCloud2 topic.
     """
-    def __init__(self, points_sub_topic, 
+    def __init__(self, points_sub_topic,
                        image_sub_topic,
                        cam_info_topic,
                        rgb_frame,
@@ -48,10 +48,10 @@ class PointcloudProcess:
 
         self._bridge = CvBridge()
         self.listener = tf.TransformListener()
-        
+
         # self.points_pub = rospy.Publisher(points_pub_topic, PointCloud2, queue_size=10)
         # self.image_pub = rospy.Publisher('segmented_image', Image, queue_size=10)
-        
+
         ts = message_filters.ApproximateTimeSynchronizer([image_sub, caminfo_sub],
                                                           10, 0.1, allow_headerless=True)
         # Commenting out point cloud stuff because that doesn't work for some reason
@@ -68,16 +68,17 @@ class PointcloudProcess:
         self.num_steps += 1
         self.messages.appendleft((None, rgb_image, intrinsic_matrix))
 
-    # def callback(self, points_msg, image, info):
-    #     try:
-    #         intrinsic_matrix = get_camera_matrix(info)
-    #         rgb_image = ros_numpy.numpify(image)
-    #         points = ros_numpy.numpify(points_msg)
-    #     except Exception as e:
-    #         rospy.logerr(e)
-    #         return
-    #     self.num_steps += 1
-    #     self.messages.appendleft((points, rgb_image, intrinsic_matrix))
+    def callback(self, points_msg, image, info):
+        """Use this once we have points!"""
+        try:
+            intrinsic_matrix = get_camera_matrix(info)
+            rgb_image = ros_numpy.numpify(image)
+            points = ros_numpy.numpify(points_msg)
+        except Exception as e:
+            rospy.logerr(e)
+            return
+        self.num_steps += 1
+        self.messages.appendleft((points, rgb_image, intrinsic_matrix))
 
     def publish_once_from_queue(self):
         if self.messages:
@@ -89,11 +90,11 @@ class PointcloudProcess:
                                                        rospy.Time(0))
                 rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
             except (tf.LookupException,
-                    tf.ConnectivityException, 
+                    tf.ConnectivityException,
                     tf.ExtrapolationException):
                 return
 
-            dostuff(image)
+            dostuff(points, image, trans, rot)
             # points_msg = numpy_to_pc2_msg(points)
             # self.points_pub.publish(points_msg)
             # print("Published segmented pointcloud at timestamp:",
