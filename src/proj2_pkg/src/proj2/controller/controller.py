@@ -13,6 +13,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, UnicycleConfigurationSpace # SinusoidPlanner
+from gp import GaussianProcessRegressionWrapper
 
 TERRAIN_DIM = 1
 
@@ -24,11 +25,9 @@ class UnicycleModelController(object):
         self.pub = rospy.Publisher('/unicycle/cmd_vel', UnicycleCommandMsg, queue_size=10)
         self.sub = rospy.Subscriber('/unicycle/state', UnicycleStateMsg, self.subscribe)
         self.state = UnicycleStateMsg()
-        # self.target_positions = []
-        # self.actual_positions = []
-        self.d = 1
-        self.k = 1
         self.buffer = []
+        self.d_estimator = GaussianProcessRegressionWrapper()
+        self.k_estimator = GaussianProcessRegressionWrapper()
         rospy.on_shutdown(self.shutdown)
 
     def current_pos_to_terrain(self, pos, terrains):
@@ -65,40 +64,41 @@ class UnicycleModelController(object):
 
         inputs_agg = []
         prev_state_change_time = prev_t
-        
+
+        sys_id_count = 0
+        sys_id_period = 100
         while not rospy.is_shutdown():
             t = (rospy.Time.now() - start_t).to_sec()
-            # dt = t - prev_t
-            # prev_t = t
+
             dt = plan.dt
             if t < plan.times[-1]:
                 state, cmd = plan.get(t)
                 next_state, next_cmd = plan.get(t+dt)
                 prev_state, prev_cmd = plan.get(t-dt)
-            elif t < plan.times[-1] + 5:
+            elif t < plan.times[-1]:
                 cmd = cmd*0
             else:
                 break
-            current_terrain_vector = self.current_pos_to_terrain(state[:2], terrains)[0]
-            # state_vel = (self.state - cur_state)/dt 
+
+            current_terrain_vector = self.current_pos_to_terrain(state[:2], terrains)[0] # eventually this will be made into vision-based
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
-            # print("states", prev_state[0], state[0], next_state[0])
-            # print("target velocity", target_velocity[0])
-            # print("open loop input", cmd[0])
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
-                self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                 prev_state_change_time = t
-                self.estimate_parameters(self.buffer, self.terrain)
+                sys_id_count += 1
+
+                if sys_id_count % sys_id_period == 0:
+                    self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
+                    self.estimate_parameters(self.buffer, self.terrain)
 
             cur_state = self.state
             commanded_input = self.step_control(state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
             inputs_agg.append(commanded_input)
             rate.sleep()
 
-    def estimate_parameters(self, buffer):
+    def estimate_parameters_leastsq(self, buffer):
         if len(buffer) < 4:
             return
 
@@ -107,24 +107,27 @@ class UnicycleModelController(object):
             xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
             theta = (buffer_state[0] + buffer_state[1])[2] / 2
             v, w = buffer_state[3]
-            # print("v and xdot", v, xdot)
             self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
             self.d_goal = np.append(self.d_goal, [xdot, ydot])
             self.k_est = np.append(self.k_est, [w])
             self.k_goal = np.append(self.k_goal, [theta_dot])
 
-        # print(self.d_est, self.d_goal)
-
-        # self.d_est, self.d_goal, self.k_est, self.k_goal = np.squeeze(self.d_est), np.squeeze(self.d_goal), np.squeeze(self.k_est), np.squeeze(self.k_goal)
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
         
         print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
 
-        # print(self.d, self.k)
-        # self.target_positions = np.array(self.target_positions)
-        # self.actual_positions = np.array(self.actual_positions)
-        # self.cmd([0, 0])
+    def estimate_parameters_gp(self, buffer):
+        for i in range(len(self.d_est), len(buffer)):
+            buffer_state = buffer[i]
+            xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2
+            v, w = buffer_state[3]
+            self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
+            self.d_goal = np.append(self.d_goal, [xdot, ydot])
+            self.k_est = np.append(self.k_est, [w])
+            self.k_goal = np.append(self.k_goal, [theta_dot])
+
 
     def dist(self, orig_pt, dir, target):
         """
