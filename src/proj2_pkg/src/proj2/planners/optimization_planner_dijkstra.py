@@ -22,9 +22,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
-            print(i,j)
             current_node_idx = xy_to_i(terrains_grid, [i, j])
-            print(current_node_idx)
             
             for r in range(-1, 2):
                 for c in range(-1, 2):
@@ -36,10 +34,9 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
                     min_r, min_c = min(i, i + r), min(j, j + c)
-                    print("mins", min_r, min_c)
-                    graph.add_edge(current_node_idx, neighbor_node_idx, 1/terrains_grid[min_c, min_r, 0])
+                    graph.add_edge(current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid[min_c, min_r, 0])
 
-    print(graph, start_node, goal_node)
+    # print(graph, start_node, goal_node)
     pathinfo = find_path(graph, start_node, goal_node)
     print(pathinfo)
 
@@ -49,7 +46,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     
     return np.asarray(real_world_points)
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, dt=0.01, terrain_map=None, side_length=None):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100, dt=0.01, terrain_map=None, side_length=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -65,49 +62,27 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, d
     """
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
-    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon, dt)
-    print(waypoints)
-    print(inputs)
+    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
-def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=1, dt=0.05):
-    n = path.shape[0]*horizon
-    res = terrain_map.shape[0]/side_length
-    c = max(1, path.shape[0]//n) # look ahead this many indexes
+def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=100, dt=0.05):
+    n = (path.shape[0]-1)*density+1
+    print("n for trajectory: ", n)
     waypoints = np.zeros((n, 3))
     inputs = np.zeros((n-1, 2))
-    print(waypoints.shape, inputs.shape)
 
     # start pose #
     waypoints[0] = [path[0,0], path[0,1], q_start[2]]
-    i = c
-    for j in range(1,waypoints.shape[0]-1):
+
+    for j in range(0, path.shape[0] - 1):
         # make sure the last cell is the goal position #
-        if (i + c > terrain_map.shape[0]):
-            c = terrain_map.shape[0] - i
-        
-        # generate waypoint #
-        print(i, j, path[i], path[i+c])
-        theta = np.arctan(path[i+c,1] - path[i,1])/(path[i+c,0] - path[i,0])
-        waypoints[j] = [path[i,0], path[i,1], theta]
-
-        # velocity of last waypoint to get to current waypoint #
-        distance = np.sqrt((waypoints[j,1] - waypoints[j-1,1])**2 + (waypoints[j,0] - waypoints[j-1,0])**2)
-        theta_d = waypoints[j,2] - waypoints[j-1,2]
-        inputs[j-1] = [distance/dt, theta_d/dt]
-
-        i += c
+        theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
+        for step in range(1, density + 1):
+            waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/density) + path[j+1] * (step/density), [theta]))
     
-    # final pose #
-    waypoints[-1] = [path[-1,0], path[-1,1], q_goal[2]]
-    distance = np.sqrt((waypoints[-1,1] - waypoints[-2,1])**2 + (waypoints[-1,0] - waypoints[-2,0])**2)
-    theta_d = waypoints[-1,2] - waypoints[-2,2]
-    inputs[-1] = [distance/dt, theta_d/dt]
-
     assert((waypoints[0] == q_start).all())
-    assert((waypoints[-1] == q_goal).all())
+    # assert((waypoints[-1] == q_goal).all())
     return waypoints, inputs, n
-
 
 
 def plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains):
@@ -167,12 +142,12 @@ def main():
     dt = 0.5
 
     xy_low = [0, 0]
-    xy_high = [4, 4]
+    xy_high = [40, 40]
     u1_max = 2
     u2_max = 3
     obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([4, 4, 0])
+    q_goal = np.array([23, 21, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -184,7 +159,7 @@ def main():
 
     ###### CONSTRUCT SOLVER AND SOLVE ######
 
-    terrain1 = ([1, 3, 0, 2], 0.05, 0.05)
+    terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
     terrains = [terrain1]
 
     res = 1
@@ -196,8 +171,7 @@ def main():
         k, d = terrain[1:]
         terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
 
-    print(terrain_map)
-    plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=horizon, dt=dt, terrain_map=terrain_map, side_length=side_length)
+    plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100, dt=dt, terrain_map=terrain_map, side_length=side_length)
     plan = plan.T
     inputs = inputs.T
 
