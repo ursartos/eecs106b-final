@@ -65,12 +65,12 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, d
     """
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
-    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon, dt)
+    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, u_lb, u_ub, terrain_map, side_length, horizon, dt)
     print(waypoints)
     print(inputs)
     return waypoints, inputs, n
 
-def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=1, dt=0.05):
+def path_to_trajectory(path, q_start, q_goal, u_lb, u_ub, terrain_map, side_length, horizon=1, dt=0.05):
     n = path.shape[0]*horizon
     res = terrain_map.shape[0]/side_length
     c = max(1, path.shape[0]//n) # look ahead this many indexes
@@ -93,16 +93,20 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=
 
         # velocity of last waypoint to get to current waypoint #
         distance = np.sqrt((waypoints[j,1] - waypoints[j-1,1])**2 + (waypoints[j,0] - waypoints[j-1,0])**2)
+        v = min(max(distance/dt, u_lb[0]), u_ub[0])
         theta_d = waypoints[j,2] - waypoints[j-1,2]
-        inputs[j-1] = [distance/dt, theta_d/dt]
+        theta_dot = min(max(theta_d/dt, u_lb[1]), u_ub[1])
+        inputs[j-1] = [v, theta_dot]
 
         i += c
     
     # final pose #
     waypoints[-1] = [path[-1,0], path[-1,1], q_goal[2]]
     distance = np.sqrt((waypoints[-1,1] - waypoints[-2,1])**2 + (waypoints[-1,0] - waypoints[-2,0])**2)
+    v = min(max(distance/dt, u_lb[0]), u_ub[0])
     theta_d = waypoints[-1,2] - waypoints[-2,2]
-    inputs[-1] = [distance/dt, theta_d/dt]
+    theta_dot = min(max(theta_d/dt, u_lb[1]), u_ub[1])
+    inputs[-1] = [v, theta_dot]
 
     assert((waypoints[0] == q_start).all())
     assert((waypoints[-1] == q_goal).all())
@@ -187,7 +191,7 @@ def main():
     terrain1 = ([1, 3, 0, 2], 0.05, 0.05)
     terrains = [terrain1]
 
-    res = 1
+    res = 3
     horizon = max(1, res//2)
     side_length = q_ub[0] - q_lb[0] + 1
     terrain_map = np.ones((res*side_length, res*side_length, 2))
