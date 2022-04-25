@@ -37,10 +37,14 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     graph.add_edge(current_node_idx, neighbor_node_idx, 1/terrains_grid[min_r, min_c, 0])
 
     pathinfo = find_path(graph, start_node, goal_node)
+    print(graph, start_node, goal_node)
+    print(pathinfo)
 
     real_world_points = []
-    for i in range(len(pathinfo)):
-        real_world_points.append(i_to_xy(terrains_grid, pathinfo[i]) * side_length / len(terrains_grid))
+    for i in range(len(pathinfo[0])):
+        real_world_points.append(i_to_xy(terrains_grid, pathinfo[0][i]) * side_length / len(terrains_grid))
+    
+    return np.asarray(real_world_points)
 
 def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, dt=0.01, terrain_map=None, side_length=None):
     """
@@ -56,7 +60,8 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, d
     Returns a plan (shape (3, n+1)) of waypoints and a sequence of inputs
     (shape (2, n)) of inputs at each timestep.
     """
-    path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
+    # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
+    path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
     waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon, dt)
     print(waypoints)
     print(inputs)
@@ -162,7 +167,7 @@ def main():
     u2_max = 3
     obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([4, 4, 0])
+    q_goal = np.array([3, 3, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -174,8 +179,8 @@ def main():
 
     ###### CONSTRUCT SOLVER AND SOLVE ######
 
-    terrain1 = ([1, 2, 0, 1], 0.05, 0.05)
-    terrains = []#[terrain1]
+    terrain1 = ([1, 3, 0, 2], 0.05, 0.05)
+    terrains = [terrain1]
 
     res = 1
     horizon = res
