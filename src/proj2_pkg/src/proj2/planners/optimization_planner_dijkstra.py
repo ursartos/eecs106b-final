@@ -162,7 +162,7 @@ def main():
     terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
     terrains = [terrain1]
 
-    res = 1
+    res = 3
     horizon = max(1, res//2)
     side_length = q_ub[0] - q_lb[0] + 1
     terrain_map = np.ones((res*side_length, res*side_length, 2))
