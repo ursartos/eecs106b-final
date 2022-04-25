@@ -1,4 +1,4 @@
-from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, if_else, logic_and
+from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, SX, if_else, logic_and
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -24,7 +24,7 @@ def unicycle_robot_model(q, u, dt=0.01, terrains=[]):
     dt is the discretization timestep.
     L is the axel-to-axel length of the car.
 
-    q = array of casadi MX.sym symbolic variables [x, y, theta, phi].
+    q = array of casadi MX.sym symbolic variables [x, y, theta].
     u = array of casadi MX.sym symbolic variables [u1, u2] (velocity and steering inputs).
 
     Use the casadi sin, cos, tan functions.
@@ -52,13 +52,27 @@ def unicycle_robot_model(q, u, dt=0.01, terrains=[]):
     # fy = floor(y)
     # d, k = 1, 1
     # d = if_else(fx, terrains_d[fx, fy], terrains_d[0, 0])
+    # print(type(x), type(y))
+    # terrains_d = SX(terrains[:,:,0].tolist())
+    # terrains_k = SX(terrains[:,:,1].tolist())
+    # print(terrains_k)
 
+    # x = MX.sym("x",4)
+    # s = MX.sym("s")
+    # f = x[s]
+
+    # idx_x, idx_y = floor(x), floor(y) # just truncating for now, when we have more fine terrains we can revise
+    # d_ter = terrains_d[idx_x][idx_y]
+    # d = MX(d_ter)
+    # k = MX(k_ter)
     d = MX(1)
     k = MX(1)
     for terrain in terrains:
-        x1, x2 = terrain[0]
-        y1, y2 = terrain[1]
-        dter, kter = terrain[2], terrain[3]
+        # print("terrain", terrain)
+        x1, x2 = terrain[0][:2]
+        y1, y2 = terrain[0][2:]
+        dter, kter = terrain[1], terrain[2]
+        # print(dter, kter)
         d = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(dter), d)
         k = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(kter), k)
 
@@ -201,13 +215,13 @@ def constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, L=0.3, 
 
     # Initial and final state constraints
     constraints.append(q_start == q[:,0]) # Constraint on start state.
-    constraints.append(q_goal == q[:,q.shape[1]-1]) # Constraint on final state.
+    # constraints.append(q_goal == q[:,q.shape[1]-1]) # Constraint on final state.
 
     # for c in constraints:
     #     print(c, c.is_constant())
     return constraints
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0.01, terrains=[]):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0.01, terrain_map=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -228,14 +242,10 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
 
     Q = np.diag([1, 1, 1])
     R = 2 * np.diag([1, 0.5])
-    P = n * Q
+    P = n * Q * 100
 
-    # terrain_kds = np.ones((q_ub[0] - q_lb[0], q_ub[1] - q_lb[1], 2))
-    # if terrains is not None:
-    #     for terrain in terrains:
-    #         xmin, xmax, ymin, ymax = terrain[0]
-    #         k, d = terrain[1:]
-            # terrain_kds[xmin:xmax, ymin:ymax, :] = [k, d]
+    if terrain_map is None:
+        terrain_map = np.ones((q_ub[0] - q_lb[0], q_ub[1] - q_lb[1], 2))
 
     q0, u0 = initial_cond(q_start, q_goal, n)
     obj = objective_func(q, u, q_goal, Q, R, P)
@@ -244,7 +254,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
 
     opti.minimize(obj)
 
-    opti.subject_to(constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, dt=dt, terrains=terrains))
+    opti.subject_to(constraints(q, u, q_lb, q_ub, u_lb, u_ub, obs_list, q_start, q_goal, dt=dt, terrains=terrain_map))
 
     opti.set_initial(q, q0)
     opti.set_initial(u, u0)
@@ -262,7 +272,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
     inputs = sol.value(u)
     return plan, inputs
 
-def plot(plan, inputs, times, q_lb, q_ub, obs_list):
+def plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains):
 
     # Trajectory plot
     ax = plt.subplot(1, 1, 1)
@@ -274,6 +284,15 @@ def plot(plan, inputs, times, q_lb, q_ub, obs_list):
         xc, yc, r = obs
         circle = plt.Circle((xc, yc), r, color='black')
         ax.add_artist(circle)
+    
+    for ter in terrains:
+        # print(ter)
+        w, h = ter[0][1] - ter[0][0], ter[0][3] - ter[0][2]
+        x, y = ter[0][0], ter[0][2]
+        # print(x,y,w,h)
+        # x, y = 4,4
+        rect = plt.Rectangle((x, y), w, h, color='grey')
+        ax.add_artist(rect)
 
     plan_x = plan[0, :]
     plan_y = plan[1, :]
@@ -307,15 +326,15 @@ def main():
     ###### PROBLEM PARAMS ######
 
     n = 1000
-    dt = 0.01
+    dt = 0.5
 
-    xy_low = [-5, -1]
-    xy_high = [10, 10]
+    xy_low = [0, 0]
+    xy_high = [4, 4]
     u1_max = 2
     u2_max = 3
-    obs_list = [[5, 5, 1], [-3, 4, 1], [4, 2, 2]]
-    q_start = np.array([-5, -1, 0])
-    q_goal = np.array([-5, 2, np.pi/2])
+    obs_list = [[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
+    q_start = np.array([0, 0, 0])
+    q_goal = np.array([4, 0, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -327,15 +346,22 @@ def main():
 
     ###### CONSTRUCT SOLVER AND SOLVE ######
 
-    terrain1 = [([0, 3, 0, 3], 0.4, 0.4)]
+    terrain1 = ([1, 2, 0, 1], 0.05, 0.05)
+    terrains = []#[terrain1]
 
-    plan, inputs = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=n, dt=dt, terrains=terrain1)
+    terrain_map = np.ones((q_ub[0] - q_lb[0], q_ub[1] - q_lb[1], 2))
+    for terrain in terrains:
+        xmin, xmax, ymin, ymax = terrain[0]
+        k, d = terrain[1:]
+        terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
+
+    plan, inputs = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=n, dt=dt, terrain_map=terrains)
 
     ###### PLOT ######
 
     times = np.arange(0.0, (n + 1) * dt, dt)
     print("Final Position:", plan[:3, -1])
-    plot(plan, inputs, times, q_lb, q_ub, obs_list)
+    plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains)
 
 if __name__ == '__main__':
     main()
