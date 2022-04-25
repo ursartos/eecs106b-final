@@ -1,3 +1,4 @@
+from re import T
 from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, SX, if_else, logic_and
 
 import numpy as np
@@ -41,7 +42,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     for i in range(len(pathinfo)):
         real_world_points.append(i_to_xy(terrains_grid, pathinfo[i]) * side_length / len(terrains_grid))
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0.01, terrain_map=None, side_length=None):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=1, dt=0.01, terrain_map=None, side_length=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -55,10 +56,49 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=1000, dt=0
     Returns a plan (shape (3, n+1)) of waypoints and a sequence of inputs
     (shape (2, n)) of inputs at each timestep.
     """
-    
+    path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
+    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon, dt)
+    print(waypoints)
+    print(inputs)
+    return waypoints, inputs, n
 
-def path_to_trajectory(path, terrain_map, side_length):
+def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=1, dt=0.05):
+    n = path.shape[0]*horizon
     res = terrain_map.shape[0]/side_length
+    c = max(1, path.shape[0]//n) # look ahead this many indexes
+    waypoints = np.zeros((n, 3))
+    inputs = np.zeros((n-1, 2))
+    print(waypoints.shape, inputs.shape)
+    waypoints[0] = [path[0,0], path[0,1], q_start[2]]
+    i = c
+    for j in range(1,waypoints.shape[0]-1):
+        # make sure the last cell is the goal position #
+        if (i + c > terrain_map.shape[0]):
+            c = terrain_map.shape[0] - i
+            1/0
+        
+        # generate waypoint #
+        print(i, j, path[i], path[i+c])
+        theta = np.arctan(path[i+c,1] - path[i,1])/(path[i+c,0] - path[i,0])
+        waypoints[j] = [path[i,0], path[i,1], theta]
+
+        # velocity of last waypoint to get to current waypoint #
+        distance = np.sqrt((waypoints[j,1] - waypoints[j-1,1])**2 + (waypoints[j,0] - waypoints[j-1,0])**2)
+        theta_d = waypoints[j,2] - waypoints[j-1,2]
+        inputs[j-1] = [distance/dt, theta_d/dt]
+
+        i += c
+    
+    waypoints[-1] = [path[-1,0], path[-1,1], q_goal[2]]
+    distance = np.sqrt((waypoints[-1,1] - waypoints[-2,1])**2 + (waypoints[-1,0] - waypoints[-2,0])**2)
+    theta_d = waypoints[-1,2] - waypoints[-2,2]
+    inputs[-1] = [distance/dt, theta_d/dt]
+
+    assert((waypoints[0] == q_start).all())
+    assert((waypoints[-1] == q_goal).all())
+    return waypoints, inputs, n
+
+
 
 def plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains):
 
@@ -120,9 +160,9 @@ def main():
     xy_high = [4, 4]
     u1_max = 2
     u2_max = 3
-    obs_list = [[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
+    obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([4, 0, 0])
+    q_goal = np.array([4, 4, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -135,21 +175,24 @@ def main():
     ###### CONSTRUCT SOLVER AND SOLVE ######
 
     terrain1 = ([1, 2, 0, 1], 0.05, 0.05)
-    terrains = [terrain1]
+    terrains = []#[terrain1]
 
-    res = 10
-    side_length = q_lb[0] - q_ub[0]
+    res = 1
+    horizon = res
+    side_length = q_ub[0] - q_lb[0]
     terrain_map = np.ones((res*side_length, res*side_length, 2))
     for terrain in terrains:
         xmin, xmax, ymin, ymax = res*terrain[0]
         k, d = terrain[1:]
         terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
 
-    plan, inputs = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, n=n, dt=dt, terrain_map=terrains, side_length=side_length)
+    plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=horizon, dt=dt, terrain_map=terrain_map, side_length=side_length)
+    plan = plan.T
+    inputs = inputs.T
 
     ###### PLOT ######
 
-    times = np.arange(0.0, (n + 1) * dt, dt)
+    times = np.arange(0.0, n * dt, dt)
     print("Final Position:", plan[:3, -1])
     plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains)
 
