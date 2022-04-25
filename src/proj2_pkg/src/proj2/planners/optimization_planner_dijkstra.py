@@ -22,7 +22,9 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
+            print(i,j)
             current_node_idx = xy_to_i(terrains_grid, [i, j])
+            print(current_node_idx)
             
             for r in range(-1, 2):
                 for c in range(-1, 2):
@@ -34,10 +36,11 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
                     min_r, min_c = min(i, i + r), min(j, j + c)
-                    graph.add_edge(current_node_idx, neighbor_node_idx, 1/terrains_grid[min_r, min_c, 0])
+                    print("mins", min_r, min_c)
+                    graph.add_edge(current_node_idx, neighbor_node_idx, 1/terrains_grid[min_c, min_r, 0])
 
-    pathinfo = find_path(graph, start_node, goal_node)
     print(graph, start_node, goal_node)
+    pathinfo = find_path(graph, start_node, goal_node)
     print(pathinfo)
 
     real_world_points = []
@@ -74,13 +77,14 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=
     waypoints = np.zeros((n, 3))
     inputs = np.zeros((n-1, 2))
     print(waypoints.shape, inputs.shape)
+
+    # start pose #
     waypoints[0] = [path[0,0], path[0,1], q_start[2]]
     i = c
     for j in range(1,waypoints.shape[0]-1):
         # make sure the last cell is the goal position #
         if (i + c > terrain_map.shape[0]):
             c = terrain_map.shape[0] - i
-            1/0
         
         # generate waypoint #
         print(i, j, path[i], path[i+c])
@@ -94,6 +98,7 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, horizon=
 
         i += c
     
+    # final pose #
     waypoints[-1] = [path[-1,0], path[-1,1], q_goal[2]]
     distance = np.sqrt((waypoints[-1,1] - waypoints[-2,1])**2 + (waypoints[-1,0] - waypoints[-2,0])**2)
     theta_d = waypoints[-1,2] - waypoints[-2,2]
@@ -167,7 +172,7 @@ def main():
     u2_max = 3
     obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([3, 3, 0])
+    q_goal = np.array([4, 4, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -183,14 +188,15 @@ def main():
     terrains = [terrain1]
 
     res = 1
-    horizon = res
-    side_length = q_ub[0] - q_lb[0]
+    horizon = max(1, res//2)
+    side_length = q_ub[0] - q_lb[0] + 1
     terrain_map = np.ones((res*side_length, res*side_length, 2))
     for terrain in terrains:
-        xmin, xmax, ymin, ymax = res*terrain[0]
+        xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
         k, d = terrain[1:]
         terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
 
+    print(terrain_map)
     plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, horizon=horizon, dt=dt, terrain_map=terrain_map, side_length=side_length)
     plan = plan.T
     inputs = inputs.T
