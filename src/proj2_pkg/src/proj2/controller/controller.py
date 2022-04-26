@@ -13,7 +13,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, UnicycleConfigurationSpace # SinusoidPlanner
-from gp import GaussianProcessRegressionWrapper
+# from gp import GaussianProcessRegressionWrapper
 
 TERRAIN_DIM = 1
 
@@ -26,8 +26,8 @@ class UnicycleModelController(object):
         self.sub = rospy.Subscriber('/unicycle/state', UnicycleStateMsg, self.subscribe)
         self.state = UnicycleStateMsg()
         self.buffer = []
-        self.d_estimator = GaussianProcessRegressionWrapper()
-        self.k_estimator = GaussianProcessRegressionWrapper()
+        # self.d_estimator = GaussianProcessRegressionWrapper()
+        # self.k_estimator = GaussianProcessRegressionWrapper()
         rospy.on_shutdown(self.shutdown)
 
     def current_pos_to_terrain(self, pos, terrains):
@@ -91,7 +91,7 @@ class UnicycleModelController(object):
 
                 if sys_id_count % sys_id_period == 0:
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
-                    self.estimate_parameters(self.buffer, self.terrain)
+                    self.estimate_parameters_leastsq(self.buffer, self.terrain)
 
             cur_state = self.state
             commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
