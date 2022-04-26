@@ -47,10 +47,12 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
 
+    # print(terrains_grid.shape)
+
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
             current_node_idx = xy_to_i(terrains_grid, [i, j])
-            
+
             for r in range(-1, 2):
                 for c in range(-1, 2):
                     if r == 0 and c == 0:
@@ -66,15 +68,21 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     edges.append((current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid[min_c, min_r, 0]))
 
     # print(graph, start_node, goal_node)
-    use_custom_dijkstra = False
+    use_custom_dijkstra = True
 
     if use_custom_dijkstra:
-        path, cost = dijkstra(edges, start_node, goal_node)
+        cost, path = dijkstra(edges, start_node, goal_node)
+        nodes = []
+        while len(path) > 0:
+            nodes.append(path[0])
+            path = path[1]
+        path = nodes
     else:
         pathinfo = find_path(graph, start_node, goal_node)
         path = pathinfo[0]
 
     real_world_points = []
+    # print(path)
     for node in path:
         real_world_points.append(i_to_xy(terrains_grid, node) * side_length / len(terrains_grid))
     
