@@ -1,5 +1,5 @@
 from re import T
-from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, SX, if_else, logic_and
+# from casadi import Opti, sin, cos, tan, vertcat, mtimes, floor, conditional, MX, SX, if_else, logic_and
 
 import numpy as np
 import matplotlib.pyplot as plt
@@ -85,11 +85,11 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     real_world_points = []
     # print(path)
     for node in path:
-        real_world_points.append(i_to_xy(terrains_grid, node) * side_length / len(terrains_grid))
+        real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
     
     return np.asarray(real_world_points)
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, terrain_map=None, side_length=None):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, density=100, terrain_map=None, side_length=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -107,7 +107,9 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0] + 1
+    print(q_start, q_goal, side_length)
     path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    print(terrain_map)
     waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
@@ -124,7 +126,7 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=
         # make sure the last cell is the goal position #
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
         for step in range(1, density + 1):
-            waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/density) + path[j+1] * (step/density), [theta]))
+            waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/float(density)) + path[j+1] * (step/float(density)), [theta]))
     
     # assert((waypoints[0] == q_start).all())
     # assert((waypoints[-1] == q_goal).all())
