@@ -61,6 +61,8 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100,
     (shape (2, n)) of inputs at each timestep.
     """
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
+    if (side_length is None):
+        side_length = q_ub[0] - q_lb[0] + 1
     path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
     waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
@@ -80,7 +82,7 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=
         for step in range(1, density + 1):
             waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/density) + path[j+1] * (step/density), [theta]))
     
-    assert((waypoints[0] == q_start).all())
+    # assert((waypoints[0] == q_start).all())
     # assert((waypoints[-1] == q_goal).all())
     return waypoints, inputs, n
 
