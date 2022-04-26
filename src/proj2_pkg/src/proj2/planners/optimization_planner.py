@@ -53,6 +53,7 @@ class OptimizationPlanner(object):
             #     self.config_space.low_lims, self.config_space.high_lims, 
             #     self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
             #     n=N, dt=dt, terrains=self.config_space.terrains)
+
             q_opt, u_opt, N = plan_to_pose(np.array(start), np.array(goal), 
                 self.config_space.low_lims, self.config_space.high_lims, 
                 self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
@@ -63,7 +64,13 @@ class OptimizationPlanner(object):
             open_loop_inputs = []
             t = 0
 
-            for i in range(0, N):
+            print(q_opt.shape)
+            print(u_opt.shape)
+            print(N)
+            q_opt = q_opt.T
+            u_opt = u_opt.T
+
+            for i in range(0, N-1):
                 qi = np.array([q_opt[0][i], q_opt[1][i], q_opt[2][i]])
                 ui = np.array([u_opt[0][i], u_opt[1][i]])
                 times.append(t)
@@ -72,7 +79,7 @@ class OptimizationPlanner(object):
                 t = t + dt
 
             # We add one extra step since q_opt has one more state that u_opt
-            qi = np.array([q_opt[0][N], q_opt[1][N], q_opt[2][N]])
+            qi = np.array([q_opt[0][N-1], q_opt[1][N-1], q_opt[2][N-1]])
             ui = np.array([0.0, 0.0])
             times.append(t)
             target_positions.append(qi)
@@ -114,24 +121,76 @@ class OptimizationPlanner(object):
 def main():
     """Use this function if you'd like to test without ROS.
     """
-    start = np.array([1, 1, 0]) 
-    goal = np.array([9, 9, 0])
+    # start = np.array([1, 1, 0]) 
+    # goal = np.array([9, 9, 0])
+    # xy_low = [0, 0]
+    # xy_high = [10, 10]
+    # phi_max = 0.6
+    # u1_max = 2
+    # u2_max = 3
+    # obstacles = []#[[6, 3.5, 1.5], [3.5, 6.5, 1]]
+
+    # terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
+    # terrains = [terrain1]
+
+    # res = 3
+    # horizon = max(1, res//2)
+    # side_length = xy_high[0] - xy_low[0] + 1
+    # terrain_map = np.ones((res*side_length, res*side_length, 2))
+    # for terrain in terrains:
+    #     xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
+    #     k, d = terrain[1:]
+    #     terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
+
+    ###### PROBLEM PARAMS ######
+
+    n = 1000
+    dt = 0.5
+
     xy_low = [0, 0]
-    xy_high = [10, 10]
-    phi_max = 0.6
+    xy_high = [40, 40]
     u1_max = 2
     u2_max = 3
-    obstacles = [[6, 3.5, 1.5], [3.5, 6.5, 1]]
+    obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
+    q_start = np.array([0, 0, 0])
+    q_goal = np.array([23, 21, 0])
+
+    ###### SETUP PROBLEM ######
+    
+    q_lb = xy_low
+    q_ub = xy_high
+
+    u_lb = [-u1_max, -u2_max]
+    u_ub = [u1_max, u2_max]
+
+    ###### CONSTRUCT SOLVER AND SOLVE ######
+
+    terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
+    terrains = [terrain1]
+
+    res = 3
+    horizon = max(1, res//2)
+
+    side_length = q_ub[0] - q_lb[0] + 1
+    terrain_map = np.ones((res*side_length, res*side_length, 2))
+    for terrain in terrains:
+        xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
+        k, d = terrain[1:]
+        terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
 
     config = UnicycleConfigurationSpace(xy_low + [-1000],
                                         xy_high + [1000],
                                         [-u1_max, -u2_max],
                                         [u1_max, u2_max],
-                                        obstacles,
-                                        0.15)
+                                        obs_list,
+                                        0.15,
+                                        q_start,
+                                        q_goal,
+                                        terrains=terrain_map
+                                        )
 
     planner = OptimizationPlanner(config)
-    plan = planner.plan_to_pose(start, goal)
+    plan = planner.plan_to_pose(q_start, q_goal)
     planner.plot_execution()
 
 if __name__ == '__main__':
