@@ -9,13 +9,13 @@ from collections import defaultdict
 from heapq import *
 
 def position_to_grid(terrains, pos, side_length):
-    return (pos/side_length * len(terrains)).astype(int)
+    return (pos/float(side_length) * terrains.shape[0]).astype(int)
     
 def xy_to_i(terrain_map, xy):
-    return len(terrain_map) * xy[0] + xy[1]
+    return terrain_map.shape[0] * xy[0] + xy[1]
 
 def i_to_xy(terrain_map, i):
-    return np.array([i % len(terrain_map), i // len(terrain_map)])
+    return np.array([i % terrain_map.shape[0], i // terrain_map.shape[0]])
 
 # dijkstra custom: https://gist.github.com/kachayev/5990802
 def dijkstra(edges, f, t):
@@ -25,6 +25,7 @@ def dijkstra(edges, f, t):
 
     q, seen, mins = [(0,f,())], set(), {f: 0}
     while q:
+        print("In queue")
         (cost,v1,path) = heappop(q)
         if v1 not in seen:
             seen.add(v1)
@@ -46,6 +47,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
+    print("Start", start_node, "Goal", goal_node)
 
     # print(terrains_grid.shape)
 
@@ -63,11 +65,10 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
                     min_r, min_c = min(i, i + r), min(j, j + c)
-                    graph.add_edge(current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid
-                    [min_c, min_r, 0])
-                    edges.append((current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid[min_c, min_r, 0]))
+                    graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / float(terrains_grid
+                    [min_c, min_r, 0]))
+                    edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / float(terrains_grid[min_c, min_r, 0])))
 
-    # print(graph, start_node, goal_node)
     use_custom_dijkstra = True
 
     if use_custom_dijkstra:
@@ -187,12 +188,12 @@ def main():
     dt = 0.5
 
     xy_low = [0, 0]
-    xy_high = [40, 40]
+    xy_high = [3, 3]
     u1_max = 2
     u2_max = 3
     obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([23, 21, 0])
+    q_goal = np.array([2, 2, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -204,10 +205,11 @@ def main():
 
     ###### CONSTRUCT SOLVER AND SOLVE ######
 
-    terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
-    terrains = [terrain1]
+    # terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
+    # terrains = [terrain1]
+    terrains = []
 
-    res = 3
+    res = 1
     horizon = max(1, res//2)
     side_length = q_ub[0] - q_lb[0] + 1
     terrain_map = np.ones((res*side_length, res*side_length, 2))
