@@ -6,7 +6,7 @@ from proj2.vision import PointcloudProcess
 def main():
     CAM_INFO_TOPIC = '/camera/rgb/camera_info'
     RGB_IMAGE_TOPIC = '/camera/rgb/image_color'
-    POINTS_TOPIC = '/camera/depth/points'
+    POINTS_TOPIC = '/camera/depth_registered/points'
 
     RGB_FRAME = '/camera_rgb_optical_frame'
     DEPTH_FRAME = '/camera_depth_optical_frame'
