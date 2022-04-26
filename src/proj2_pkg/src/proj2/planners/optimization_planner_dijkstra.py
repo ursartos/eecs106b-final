@@ -46,7 +46,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     
     return np.asarray(real_world_points)
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100, dt=0.01, terrain_map=None, side_length=None):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, terrain_map=None, side_length=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -60,6 +60,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100,
     Returns a plan (shape (3, n+1)) of waypoints and a sequence of inputs
     (shape (2, n)) of inputs at each timestep.
     """
+    density = 100
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
     waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
