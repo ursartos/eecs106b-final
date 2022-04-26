@@ -52,11 +52,12 @@ class PointcloudProcess:
         # self.points_pub = rospy.Publisher(points_pub_topic, PointCloud2, queue_size=10)
         # self.image_pub = rospy.Publisher('segmented_image', Image, queue_size=10)
 
-        ts = message_filters.ApproximateTimeSynchronizer([image_sub, caminfo_sub],
-                                                          10, 0.1, allow_headerless=True)
+        print('hello')
+        ts = message_filters.ApproximateTimeSynchronizer([points_sub, image_sub, caminfo_sub],
+                                                          1000, 100, allow_headerless=True)
         # Commenting out point cloud stuff because that doesn't work for some reason
-        # ts.registerCallback(self.callback)
-        ts.registerCallback(self.image_callback)
+        ts.registerCallback(self.callback)
+        # ts.registerCallback(self.image_callback)
 
     def image_callback(self, image, info):
         try:
@@ -94,7 +95,7 @@ class PointcloudProcess:
                     tf.ExtrapolationException):
                 return
 
-            dostuff(points, image, trans, rot)
+            dostuff(points, image, info, trans, rot)
             # points_msg = numpy_to_pc2_msg(points)
             # self.points_pub.publish(points_msg)
             # print("Published segmented pointcloud at timestamp:",
