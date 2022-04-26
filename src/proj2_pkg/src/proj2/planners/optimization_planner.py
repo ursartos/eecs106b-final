@@ -56,7 +56,7 @@ class OptimizationPlanner(object):
             q_opt, u_opt, N = plan_to_pose(np.array(start), np.array(goal), 
                 self.config_space.low_lims, self.config_space.high_lims, 
                 self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
-                density=100, dt=dt, terrain_map=self.config_space.terrains, side_length=None)
+                dt=dt, terrain_map=self.config_space.terrains, side_length=None)
 
             times = []
             target_positions = []

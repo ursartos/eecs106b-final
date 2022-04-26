@@ -13,7 +13,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, UnicycleConfigurationSpace # SinusoidPlanner
-from kernel_reg import ParameterEstimatorKernel
+# from kernel_reg import ParameterEstimatorKernel
 
 TERRAIN_DIM = 1
 
@@ -26,8 +26,8 @@ class UnicycleModelController(object):
         self.sub = rospy.Subscriber('/unicycle/state', UnicycleStateMsg, self.subscribe)
         self.state = UnicycleStateMsg()
         self.buffer = []
-        self.d_estimator = ParameterEstimatorKernel()
-        self.k_estimator = ParameterEstimatorKernel()
+        # self.d_estimator = ParameterEstimatorKernel()
+        # self.k_estimator = ParameterEstimatorKernel()
         rospy.on_shutdown(self.shutdown)
 
     def current_pos_to_terrain(self, pos, terrains):
@@ -89,9 +89,9 @@ class UnicycleModelController(object):
                 prev_state_change_time = t
                 sys_id_count += 1
 
-                if sys_id_count % sys_id_period == 0:
-                    self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
-                    self.estimate_parameters_kernel(self.buffer)
+                # if sys_id_count % sys_id_period == 0:
+                #     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
+                #     self.estimate_parameters_kernel(self.buffer)
 
             cur_state = self.state
             commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
@@ -114,7 +114,7 @@ class UnicycleModelController(object):
 
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
-        
+
         print(self.d)
         
         # print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
