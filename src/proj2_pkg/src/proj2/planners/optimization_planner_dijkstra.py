@@ -5,6 +5,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from dijkstar import Graph, find_path
+from collections import defaultdict
+from heapq import *
 
 def position_to_grid(terrains, pos, side_length):
     return (pos/side_length * len(terrains)).astype(int)
@@ -15,8 +17,33 @@ def xy_to_i(terrain_map, xy):
 def i_to_xy(terrain_map, i):
     return np.array([i % len(terrain_map), i // len(terrain_map)])
 
+# dijkstra custom: https://gist.github.com/kachayev/5990802
+def dijkstra(edges, f, t):
+    g = defaultdict(list)
+    for l,r,c in edges:
+        g[l].append((c,r))
+
+    q, seen, mins = [(0,f,())], set(), {f: 0}
+    while q:
+        (cost,v1,path) = heappop(q)
+        if v1 not in seen:
+            seen.add(v1)
+            path = (v1, path)
+            if v1 == t: return (cost, path)
+
+            for c, v2 in g.get(v1, ()):
+                if v2 in seen: continue
+                prev = mins.get(v2, None)
+                next = cost + c
+                if prev is None or next < prev:
+                    mins[v2] = next
+                    heappush(q, (next, v2, path))
+
+    return float("inf"), None
+
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     graph = Graph()
+    edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
 
@@ -34,15 +61,22 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
                     min_r, min_c = min(i, i + r), min(j, j + c)
-                    graph.add_edge(current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid[min_c, min_r, 0])
+                    graph.add_edge(current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid
+                    [min_c, min_r, 0])
+                    edges.append((current_node_idx, neighbor_node_idx, np.sqrt(abs(r) + abs(c))/terrains_grid[min_c, min_r, 0]))
 
     # print(graph, start_node, goal_node)
-    pathinfo = find_path(graph, start_node, goal_node)
-    print(pathinfo)
+    use_custom_dijkstra = False
+
+    if use_custom_dijkstra
+        path, cost = dijkstra(edges, start_node, goal_node)
+    else:
+        pathinfo = find_path(graph, start_node, goal_node)
+        path = pathinfo[0]
 
     real_world_points = []
-    for i in range(len(pathinfo[0])):
-        real_world_points.append(i_to_xy(terrains_grid, pathinfo[0][i]) * side_length / len(terrains_grid))
+    for node in path:
+        real_world_points.append(i_to_xy(terrains_grid, node) * side_length / len(terrains_grid))
     
     return np.asarray(real_world_points)
 
