@@ -25,7 +25,6 @@ def dijkstra(edges, f, t):
 
     q, seen, mins = [(0,f,())], set(), {f: 0}
     while q:
-        print("In queue")
         (cost,v1,path) = heappop(q)
         if v1 not in seen:
             seen.add(v1)
@@ -113,7 +112,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
 
 def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=100.0, dt=0.05):
     density = float(density)
-    n = (path.shape[0]-1)*density+1
+    n = int((path.shape[0]-1)*density+1)
     print("n for trajectory: ", n)
     waypoints = np.zeros((n, 3))
     inputs = np.zeros((n-1, 2))
@@ -124,8 +123,8 @@ def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=
     for j in range(0, path.shape[0] - 1):
         # make sure the last cell is the goal position #
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
-        for step in range(1, density + 1):
-            waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/density) + path[j+1] * (step/density), [theta]))
+        for step in range(1, int(density) + 1):
+            waypoints[j*int(density) + step] = np.concatenate((path[j] * (1 - step/density) + path[j+1] * (step/density), [theta]))
     
     # assert((waypoints[0] == q_start).all())
     # assert((waypoints[-1] == q_goal).all())
