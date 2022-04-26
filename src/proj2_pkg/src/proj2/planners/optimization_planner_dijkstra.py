@@ -103,7 +103,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     Returns a plan (shape (3, n+1)) of waypoints and a sequence of inputs
     (shape (2, n)) of inputs at each timestep.
     """
-    density = 100
+    density = 100.0
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0] + 1
@@ -111,7 +111,8 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
-def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=100, dt=0.05):
+def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=100.0, dt=0.05):
+    density = float(density)
     n = (path.shape[0]-1)*density+1
     print("n for trajectory: ", n)
     waypoints = np.zeros((n, 3))
