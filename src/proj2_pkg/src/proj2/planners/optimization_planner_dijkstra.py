@@ -68,7 +68,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     # print(graph, start_node, goal_node)
     use_custom_dijkstra = False
 
-    if use_custom_dijkstra
+    if use_custom_dijkstra:
         path, cost = dijkstra(edges, start_node, goal_node)
     else:
         pathinfo = find_path(graph, start_node, goal_node)
@@ -208,7 +208,7 @@ def main():
         k, d = terrain[1:]
         terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
 
-    plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, density=100, dt=dt, terrain_map=terrain_map, side_length=side_length)
+    plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=dt, terrain_map=terrain_map, side_length=side_length)
     plan = plan.T
     inputs = inputs.T
 
