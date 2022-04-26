@@ -42,6 +42,10 @@ if __name__ == '__main__':
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
     obstacles = rospy.get_param("/environment/obstacles")
 
+    if not rospy.has_param("/environment/terrains"):
+        raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
+    terrains = rospy.get_param("/environment/terrains")
+
     if not rospy.has_param("/environment/low_lims"):
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
     xy_low = rospy.get_param("/environment/low_lims")
@@ -62,6 +66,9 @@ if __name__ == '__main__':
         raise ValueError("No robot information loaded on parameter server. Did you run init_env.launch?")
     u1_max = rospy.get_param("/unicycle_converter/converter/max_linear_velocity")
 
+    print("INPUT LIMITS FROM ROS", u1_max, u2_max)
+    u1_max = 0.5
+
     print("Obstacles:", obstacles)
     
     controller = UnicycleModelController()
@@ -79,7 +86,8 @@ if __name__ == '__main__':
                                         [-u1_max, -u2_max],
                                         [u1_max, u2_max],
                                         obstacles,
-                                        0.15,start,goal)
+                                        0.15,start,goal,terrains=terrains)
+    args.planner = 'opt'
 
     if args.planner == 'sin':
         raise ValueError("don't use sin, just don't")
@@ -90,12 +98,12 @@ if __name__ == '__main__':
     elif args.planner == 'rrt':
         ## Edit the max_iter, expand_dist, dt and prefix_time_length arguments to your needs.
         planner = RRTPlanner(config, max_iter=5000, expand_dist=1.6)
-        plan = planner.plan_to_pose(controller.state, goal, dt=0.01, prefix_time_length=0.05)
+        plan = planner.plan_to_pose(controller.state, goal, dt=0.05, prefix_time_length=0.05)
 
     elif args.planner == 'opt':
         planner = OptimizationPlanner(config)
         ## Edit the dt and N arguments to your needs.
-        plan = planner.plan_to_pose(controller.state, goal, dt=0.01, N=850)
+        plan = planner.plan_to_pose(controller.state, goal, dt=0.5, N=300)
     
     print("Predicted Initial State")
     print(plan.start_position())

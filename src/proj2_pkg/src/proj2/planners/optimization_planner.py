@@ -51,7 +51,7 @@ class OptimizationPlanner(object):
             q_opt, u_opt = plan_to_pose(np.array(start), np.array(goal), 
                 self.config_space.low_lims, self.config_space.high_lims, 
                 self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
-                n=N, dt=dt)
+                n=N, dt=dt, terrains=self.config_space.terrains)
 
             times = []
             target_positions = []
@@ -92,6 +92,12 @@ class OptimizationPlanner(object):
             xc, yc, r = obs
             circle = plt.Circle((xc, yc), r, color='black')
             ax.add_artist(circle)
+
+        for terrain in self.config_space.terrains:
+            x1, x2 = terrain[0]
+            y1, y2 = terrain[1]
+            rect = plt.Rectangle((x1, y1), x2 - x1, y2 - y1)
+            ax.add_artist(rect)
 
         if self.plan:
             plan_x = self.plan.positions[:, 0]
