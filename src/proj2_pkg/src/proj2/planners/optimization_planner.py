@@ -14,7 +14,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from .configuration_space import UnicycleConfigurationSpace, Plan, expanded_obstacles
-from .optimization_planner_casadi import plan_to_pose
+# from .optimization_planner_casadi import plan_to_pose
+from .optimization_planner_dijkstra import plan_to_pose
 
 class OptimizationPlanner(object):
     def __init__(self, config_space):

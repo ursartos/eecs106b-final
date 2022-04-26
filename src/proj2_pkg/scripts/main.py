@@ -12,7 +12,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
-from proj2.planners import RRTPlanner, OptimizationPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
+from proj2.planners import RRTPlanner, OptimizationPlanner, DijkstraPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
 from proj2.controller import UnicycleModelController
 
 def parse_args():
@@ -103,15 +103,16 @@ if __name__ == '__main__':
     elif args.planner == 'opt':
         planner = OptimizationPlanner(config)
         ## Edit the dt and N arguments to your needs.
-        plan = planner.plan_to_pose(controller.state, goal, dt=0.5, N=300)
-    
-    print("Predicted Initial State")
-    print(plan.start_position())
-    print("Predicted Final State")
-    print(plan.end_position())
+        while True:
+            plan = planner.plan_to_pose(controller.state, goal, dt=0.5, N=300)
+            
+            print("Predicted Initial State")
+            print(plan.start_position())
+            print("Predicted Final State")
+            print(plan.end_position())
 
-    planner.plot_execution()
+            planner.plot_execution()
 
-    controller.execute_plan(plan)
-    print("Final State")
-    print(controller.state)
+            controller.execute_plan(plan)
+            print("Final State")
+            print(controller.state)
