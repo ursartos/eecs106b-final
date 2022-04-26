@@ -33,7 +33,7 @@ def takeImage(data):
 def startImages():
     global subscriber 
     # Image topic
-    image_topic = "/cameras/left_hand_camera/image"
+    image_topic = '/camera/rgb/image_color'
     # Subscriber setup
     subscriber = rospy.Subscriber(image_topic, Image, takeImage)
 
