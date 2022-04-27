@@ -1,4 +1,3 @@
-from inspect import Parameter
 import numpy as np
 from sklearn.metrics.pairwise import pairwise_kernels
 
@@ -27,8 +26,8 @@ class KernelRegression():
     
     def predict(self, X_pred):
         K = pairwise_kernels(self.X, X_pred, metric=self.kernel_function)
-        numerator = self.y.T @ K
-        denominator = np.ones(K.shape[0]).T @ K
+        numerator = np.matmul(self.y.T, K)
+        denominator = np.matmul(np.ones(K.shape[0]).T, K)
 
         return numerator/denominator
 
@@ -38,10 +37,10 @@ class KernelRegression():
         """
         K = pairwise_kernels(self.X, X_pred, metric=self.kernel_function)
         y_new = self.y**2 + self.sigma**2
-        numerator = y_new.T @ K
-        denominator = np.ones(K.shape[0]).T @ K
+        numerator = np.matmul(y_new.T, K)
+        denominator = np.matmul(np.ones(K.shape[0]).T, K)
 
-        return (numerator / denominator - self.predict(X_pred)**2)**0.5
+        return (np.divide(numerator, denominator) - self.predict(X_pred)**2)**0.5
 
     def epistemic_uncertainty(self, X_pred):
         """
