@@ -15,7 +15,7 @@ def xy_to_i(terrain_map, xy):
     return terrain_map.shape[0] * xy[0] + xy[1]
 
 def i_to_xy(terrain_map, i):
-    return np.array([i % terrain_map.shape[0], i // terrain_map.shape[0]])
+    return np.array([i // terrain_map.shape[0], i % terrain_map.shape[0]])
 
 # dijkstra custom: https://gist.github.com/kachayev/5990802
 def dijkstra(edges, f, t):
@@ -68,7 +68,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     [min_c, min_r, 0]))
                     edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / float(terrains_grid[min_c, min_r, 0])))
 
-    use_custom_dijkstra = True
+    use_custom_dijkstra = False
 
     if use_custom_dijkstra:
         cost, path = dijkstra(edges, start_node, goal_node)
@@ -82,11 +82,13 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
         path = pathinfo[0]
 
     real_world_points = []
+    indices = []
     # print(path)
     for node in path:
         real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
+        indices.append(i_to_xy(terrains_grid, node))
     
-    return np.asarray(real_world_points)
+    return np.asarray(real_world_points), np.array(indices)
 
 def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, density=100, terrain_map=None, side_length=None):
     """
@@ -102,34 +104,39 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     Returns a plan (shape (3, n+1)) of waypoints and a sequence of inputs
     (shape (2, n)) of inputs at each timestep.
     """
-    density = 100
+    density = 150
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0] + 1
-    print(q_start, q_goal, side_length)
-    path = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
-    print(terrain_map)
-    waypoints, inputs, n = path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density, dt)
+    # print(q_start, q_goal, side_length)
+    path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    # print(terrain_map)
+    waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
-def path_to_trajectory(path, q_start, q_goal, terrain_map, side_length, density=100, dt=0.05):
-    n = int((path.shape[0]-1)*density+1)
-    print("n for trajectory: ", n)
-    waypoints = np.zeros((n, 3))
-    inputs = np.zeros((n-1, 2))
+def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density=100, dt=0.05):
+    # n = int((path.shape[0]-1)*density+1)
+    # waypoints = np.zeros((n, 3))
+    # inputs = np.zeros((n-1, 2))
+
+    waypoints = []
+    inputs = []
 
     # start pose #
-    waypoints[0] = [path[0,0], path[0,1], q_start[2]]
+    waypoints.append([path[0,0], path[0,1], q_start[2]])
 
     for j in range(0, path.shape[0] - 1):
+        current_d = terrain_map[tuple(indices[j])][0]
         # make sure the last cell is the goal position #
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
-        for step in range(1, density + 1):
-            waypoints[j*density + step] = np.concatenate((path[j] * (1 - step/float(density)) + path[j+1] * (step/float(density)), [theta]))
-    
+        dist = np.linalg.norm(path[j+1] - path[j])
+        segment_density = dist*(density + 1)/float(current_d)
+        for step in range(1, int(segment_density)):
+            waypoints.append(np.concatenate((path[j] * (1 - step/float(segment_density)) + path[j+1] * (step/float(segment_density)), [theta])))
+            inputs.append([0, 0])
     # assert((waypoints[0] == q_start).all())
     # assert((waypoints[-1] == q_goal).all())
-    return waypoints, inputs, n
+    return np.array(waypoints), np.array(inputs), len(waypoints)
 
 
 def plot(plan, inputs, times, q_lb, q_ub, obs_list, terrains):
