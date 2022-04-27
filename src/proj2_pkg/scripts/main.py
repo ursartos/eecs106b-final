@@ -103,6 +103,8 @@ if __name__ == '__main__':
     elif args.planner == 'opt':
         planner = OptimizationPlanner(config)
         ## Edit the dt and N arguments to your needs.
+        goals = [[1, 1, 0], goal]
+        counter = 1
         while True:
             plan = planner.plan_to_pose(controller.state, goal, dt=0.5, N=300)
             
@@ -116,3 +118,6 @@ if __name__ == '__main__':
             controller.execute_plan(plan)
             print("Final State")
             print(controller.state)
+
+            counter += 1
+            goal = goals[counter % 2]
