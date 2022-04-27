@@ -7,6 +7,7 @@ Adapted for Spring 2020 by Amay Saxena
 import numpy as np
 import sys
 import argparse
+import matplotlib.pyplot as plt
 
 from std_srvs.srv import Empty as EmptySrv
 import rospy
@@ -26,6 +27,30 @@ def parse_args():
     parser.add_argument('-y', type=float, default=1.0, help='Desired position in y')
     parser.add_argument('-theta', type=float, default=0.0, help='Desired turtlebot angle')
     return parser.parse_args()
+
+def get_terrain_map(terrains, xy_low, xy_high):
+    # this function is mocking the distribution of terrains features on the ground spatially
+    terrains = np.array(terrains)
+    res = 1
+    side_length = xy_high[0] - xy_low[0] + 1
+    terrain_map = np.zeros((res*side_length, res*side_length, len(terrains) + 1))
+    terrain_map[:, :, 0] = 1
+    for i, terrain in enumerate(terrains):
+        xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
+        encoding = np.zeros((len(terrains) + 1,))
+        encoding[i+1] = 1
+        terrain_map[xmin:xmax, ymin:ymax, :] = encoding
+    return terrain_map
+
+def get_terrain_kd(terrain_map, controller):
+    kd_map = np.ones(terrain_map.shape[:2] + (2,))
+    for i in range(terrain_map.shape[0]):
+        for j in range(terrain_map.shape[1]):
+            terrain_input = np.array([terrain_map[i, j]])
+            d, d_uncertainty, d_aleatoric = controller.d_estimator.predict(terrain_input)
+            k, k_uncertainty, k_aleatoric = controller.k_estimator.predict(terrain_input)
+            kd_map[i, j] = [max(0.01, d), max(0.01, k)]
+    return kd_map
 
 if __name__ == '__main__':
     rospy.init_node('planning', anonymous=False)
@@ -81,22 +106,9 @@ if __name__ == '__main__':
     start = np.array([1, 1, 0]) 
     goal = np.array([args.x, args.y, args.theta])
 
-    terrains = np.array(terrains)
-    res = 1
-    side_length = xy_high[0] - xy_low[0] + 1
-    terrain_map = np.ones((res*side_length, res*side_length, 2))
-    for terrain in terrains:
-        print(terrain)
-        xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
-        k, d = terrain[1:]
-        terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
+    terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high)
+    terrain_map = get_terrain_kd(terrain_visual_features, controller)
 
-    config = UnicycleConfigurationSpace( xy_low,
-                                        xy_high,
-                                        [-u1_max, -u2_max],
-                                        [u1_max, u2_max],
-                                        obstacles,
-                                        0.15,start,goal,terrains=terrain_map)
     args.planner = 'opt'
 
     if args.planner == 'sin':
@@ -111,13 +123,23 @@ if __name__ == '__main__':
         plan = planner.plan_to_pose(controller.state, goal, dt=0.05, prefix_time_length=0.05)
 
     elif args.planner == 'opt':
-        planner = OptimizationPlanner(config)
-        ## Edit the dt and N arguments to your needs.
         goals = [[1, 1, 0], goal]
         counter = 1
         while True:
-            start = controller.state
+            plt.imshow(terrain_map[:, :, 0])
+            plt.colorbar()
+            plt.show()
+            ## Edit the dt and N arguments to your needs.
+            config = UnicycleConfigurationSpace(xy_low,
+                                        xy_high,
+                                        [-u1_max, -u2_max],
+                                        [u1_max, u2_max],
+                                        obstacles,
+                                        0.15,start,goal,
+                                        terrains=terrain_map)
+            planner = OptimizationPlanner(config)
 
+            start = controller.state
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
             
             print("Predicted Initial State")
@@ -133,3 +155,6 @@ if __name__ == '__main__':
 
             counter += 1
             goal = goals[counter % 2]
+
+            terrain_map = get_terrain_kd(terrain_visual_features, controller)
+            config.terrains = terrain_map
