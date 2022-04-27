@@ -12,7 +12,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
-from proj2.planners import RRTPlanner, OptimizationPlanner, DijkstraPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
+from proj2.planners import RRTPlanner, OptimizationPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
 from proj2.controller import UnicycleModelController
 
 def parse_args():
@@ -81,12 +81,22 @@ if __name__ == '__main__':
     start = np.array([1, 1, 0]) 
     goal = np.array([args.x, args.y, args.theta])
 
+    terrains = np.array(terrains)
+    res = 1
+    side_length = xy_high[0] - xy_low[0] + 1
+    terrain_map = np.ones((res*side_length, res*side_length, 2))
+    for terrain in terrains:
+        print(terrain)
+        xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
+        k, d = terrain[1:]
+        terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
+
     config = UnicycleConfigurationSpace( xy_low,
                                         xy_high,
                                         [-u1_max, -u2_max],
                                         [u1_max, u2_max],
                                         obstacles,
-                                        0.15,start,goal,terrains=terrains)
+                                        0.15,start,goal,terrains=terrain_map)
     args.planner = 'opt'
 
     if args.planner == 'sin':
@@ -106,7 +116,9 @@ if __name__ == '__main__':
         goals = [[1, 1, 0], goal]
         counter = 1
         while True:
-            plan = planner.plan_to_pose(controller.state, goal, dt=0.5, N=300)
+            start = controller.state
+
+            plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
             
             print("Predicted Initial State")
             print(plan.start_position())
@@ -115,7 +127,7 @@ if __name__ == '__main__':
 
             planner.plot_execution()
 
-            controller.execute_plan(plan)
+            controller.execute_plan(plan, terrains=terrains)
             print("Final State")
             print(controller.state)
 
