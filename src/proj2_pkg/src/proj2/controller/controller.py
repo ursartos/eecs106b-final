@@ -49,6 +49,8 @@ class UnicycleModelController(object):
             terrain_corners = terrain[0]
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
                 d, k = terrain[1], terrain[2]
+                # print([commanded[0] * d, commanded[1] * k])
+
         return [commanded[0] * d, commanded[1] * k]
 
     def execute_plan(self, plan, terrains=[]):
@@ -103,7 +105,7 @@ class UnicycleModelController(object):
                 if sys_id_count % sys_id_period == 0:
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                     # print("visual feature", current_terrain_vector)
-                    self.estimate_parameters_kernel(self.buffer)
+                    # self.estimate_parameters_kernel(self.buffer)
 
                 prev_state_change_time = t
 
@@ -113,8 +115,6 @@ class UnicycleModelController(object):
             rate.sleep()
 
         self.estimate_parameters_kernel(self.buffer)
-
-        print(self.d_estimator.predict(np.array((0, 1))))
 
     def estimate_parameters_leastsq(self, buffer):
         if len(buffer) < 4:
@@ -139,7 +139,7 @@ class UnicycleModelController(object):
         for i in range(len(self.d_est), len(buffer)):
             buffer_state = buffer[i]
             xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
-            theta = (buffer_state[0] + buffer_state[1])[2] / 2
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
             v, w = buffer_state[3]
             self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
             self.d_goal = np.append(self.d_goal, [xdot, ydot])
@@ -147,12 +147,14 @@ class UnicycleModelController(object):
             self.k_goal = np.append(self.k_goal, [theta_dot])
 
     def estimate_parameters_kernel(self, buffer):
-        X = []
+        print(buffer)
+        X_d = []
+        X_k = []
         y_d = []
         y_k = []
         for buffer_state in buffer:
             xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
-            theta = (buffer_state[0] + buffer_state[1])[2] / 2
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
             v, w = buffer_state[3]
             visual_features = buffer_state[4]
             
@@ -161,19 +163,25 @@ class UnicycleModelController(object):
             k_val = theta_dot/w
 
             MAX_CAP = 2
-            if not np.isnan(d_val_x) and not np.isnan(d_val_y) and not np.isnan(k_val) \
-                and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP and abs(k_val) < MAX_CAP:
-                X.append(visual_features)
+            if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
+                and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
+                X_d.append(visual_features)
                 y_d.append(np.mean((d_val_x, d_val_y)))
+            if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
+                X_k.append(visual_features)
                 y_k.append(k_val)
 
-        X = np.array(X)
+        X_d = np.array(X_d)
+        X_k = np.array(X_k)
         y_d = np.array(y_d)
         y_k = np.array(y_k)
 
-        if X.shape[0] > 0:
-            self.d_estimator.reestimate(X, y_d)
-            self.k_estimator.reestimate(X, y_k)
+        if X_d.shape[0] > 0:
+            print("D shapes", X_d.shape, y_d.shape)
+            self.d_estimator.reestimate(X_d, y_d)
+        if X_k.shape[0] > 0:
+            print("K shapes", X_k.shape, y_k.shape)
+            self.k_estimator.reestimate(X_k, y_k)
 
         self.buffer = []
 
@@ -206,10 +214,11 @@ class UnicycleModelController(object):
 
         # print(target_position[:2], target_position[:2] - cur_position[:2])
         # print(target_velocity[:2], cur_velocity[:2])
-        taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 0.5 * (target_velocity[:2] - cur_velocity[:2])
+        taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
-        control_input[0] = self.vel_cmd
+        actual_vel_cmd = max(min(self.vel_cmd, 2), -2)
+        control_input[0] = actual_vel_cmd
 
         self.cmd(self.mock_velocity(cur_position, control_input, terrains))
         return control_input

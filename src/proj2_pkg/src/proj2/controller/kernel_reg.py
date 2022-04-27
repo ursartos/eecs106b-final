@@ -3,11 +3,14 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 
 class KernelRegression():
-    def __init__(self, sigma=0.1):
+    def __init__(self, sigma=0.1, prior=1, prior_strength=0.001):
         self.sigma = 0.1
         self.X = None
         self.y = None
         self.sigma = sigma
+        # bias biases the predictions towards 1
+        self.prior = prior # prior value
+        self.prior_strength = prior_strength # prior strength
 
     def kernel_function(self, x1, x2):
         # return normal pdf
@@ -17,19 +20,29 @@ class KernelRegression():
         return np.exp(-0.5 * np.linalg.norm(x1 - x2)**2 / self.sigma**2)
 
     def add_data(self, X, y):
+        y = np.reshape(y, (-1, 1))
         if self.X is None:
             self.X = X
             self.y = y
         else:
             self.X = np.vstack((self.X, X))
-            self.y = np.concatenate((self.y, y))
+            self.y = np.vstack((self.y, y))
+
+    def replace_data(self, X, y):
+        y = np.reshape(y, (-1, 1))
+        self.X = X
+        self.y = y
     
     def predict(self, X_pred):
-        K = pairwise_kernels(self.X, X_pred, metric=self.kernel_function)
-        numerator = np.matmul(self.y.T, K)
-        denominator = np.matmul(np.ones(K.shape[0]).T, K)
+        if self.X is None and self.prior_strength > 0:
+            return self.prior * np.ones((X_pred.shape[0],1))
 
-        return numerator/denominator
+        K = pairwise_kernels(self.X, X_pred, metric=self.kernel_function)
+        # print(self.X.shape, X_pred.shape, self.y.shape)
+        numerator = np.matmul(self.y.T, K) + self.prior*self.prior_strength
+        denominator = np.matmul(np.ones(K.shape[0]).T, K) + self.prior_strength
+
+        return (numerator/denominator).T
 
     def epistemic_uncertainty_wrong(self, X_pred):
         """
@@ -46,19 +59,23 @@ class KernelRegression():
         """
         This is correct as it measures the variance of the mean.
         """
+        if self.X is None:
+            return 1/self.prior_strength * np.ones((X_pred.shape[0],1))
+
         counts = np.sum(pairwise_kernels(self.X, X_pred, self.distance_function), axis=0)
-        return 1/(counts + 1)
+        return 1/(counts + self.prior_strength)
 
 class ParameterEstimatorKernel():
     def __init__(self, sigma=0.1):
         self.regressor = KernelRegression(sigma)
-        self.uncertainty_regressor = KernelRegression(sigma)
+        self.uncertainty_regressor = KernelRegression(sigma, prior=0)
 
     def reestimate(self, X, y):
         self.regressor.add_data(X, y)
-        y_pred = self.regressor.predict(X)
-        y_uncertainty = (y - y_pred)**2
-        self.uncertainty_regressor.add_data(X, y_uncertainty)
+        y_pred = self.regressor.predict(self.regressor.X)
+        # print("Reestimating, ypred shape", y_pred.shape, self.regressor.y.shape)
+        y_uncertainty = (self.regressor.y - y_pred)**2
+        self.uncertainty_regressor.replace_data(self.regressor.X, y_uncertainty)
 
     def predict(self, X_pred):
         y_pred = self.regressor.predict(X_pred)
