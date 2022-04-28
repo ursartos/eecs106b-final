@@ -13,7 +13,7 @@ def dostuff_old(points, image, trans, rot):
         name = 'images/' + random.choice(WORDS) + '-' + random.choice(WORDS) + '.jpg'
         cv2.imwrite(name, image)
 
-def dostuff(points, image, cam_matrix, trans, rot):
+def dostuff(points, image, cam_matrix, trans, rot, distortion):
 
     IDX2D = lambda i, j, dj: dj * i + j
 
@@ -51,8 +51,17 @@ def dostuff(points, image, cam_matrix, trans, rot):
     masked_img = cv2.bitwise_and(image, image, mask=segmented_image)
     cv2.imshow('masked_image', masked_img)
 
+    undistorted_img = cv2.undistort(image, cam_matrix, distortion)
+
     # Now process masked_img
-    cv2.waitKey(1)
+    if cv2.waitKey(1000) == ord(' '):
+        name = 'images/' + random.choice(WORDS) + '-' + random.choice(WORDS)
+        cv2.imwrite(name+'.jpg', image)
+        cv2.imwrite(name+'-masked.jpg', masked_img)
+        cv2.imwrite(name+'-undistorted.jpg', undistorted_img)
+        np.save(name+'-points.npy', xyz)
+        print(cam_matrix, trans, rot)
+
 
     # if cv2.waitKey(1) == ord('q'):
     #     break
