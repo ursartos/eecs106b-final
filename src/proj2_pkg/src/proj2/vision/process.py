@@ -5,8 +5,6 @@ import rospy
 import message_filters
 import ros_numpy
 import tf
-import tf2_ros
-import tf2_geometry_msgs
 
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2
 import sensor_msgs.point_cloud2 as pc2
@@ -17,13 +15,10 @@ import cv2
 
 from cv_bridge import CvBridge
 
+from .analyze import dostuff
+
 def get_camera_matrix(camera_info_msg):
     return np.array(camera_info_msg.K).reshape((3,3))
-
-def isolate_object_of_interest(points, image, cam_matrix, trans, rot):
-    segmented_image = isolate_tennis_ball(image)
-    points = segment_pointcloud(points, segmented_image, cam_matrix, trans, rot)
-    return points
 
 def numpy_to_pc2_msg(points):
     return ros_numpy.msgify(PointCloud2, points, stamp=rospy.Time.now(),
@@ -34,9 +29,11 @@ class PointcloudProcess:
     Wraps the processing of a pointcloud from an input ros topic and publishing
     to another PointCloud2 topic.
     """
-    def __init__(self, points_sub_topic, 
+    def __init__(self, points_sub_topic,
                        image_sub_topic,
-                       cam_info_topic):
+                       cam_info_topic,
+                       rgb_frame,
+                       depth_frame):
 
         self.num_steps = 0
 
@@ -46,17 +43,34 @@ class PointcloudProcess:
         image_sub = message_filters.Subscriber(image_sub_topic, Image)
         caminfo_sub = message_filters.Subscriber(cam_info_topic, CameraInfo)
 
+        self.rgb_frame = rgb_frame
+        self.depth_frame = depth_frame
+
         self._bridge = CvBridge()
         self.listener = tf.TransformListener()
-        
+
         # self.points_pub = rospy.Publisher(points_pub_topic, PointCloud2, queue_size=10)
         # self.image_pub = rospy.Publisher('segmented_image', Image, queue_size=10)
-        
+
+        print('hello')
         ts = message_filters.ApproximateTimeSynchronizer([points_sub, image_sub, caminfo_sub],
-                                                          10, 0.1, allow_headerless=True)
+                                                          1000, 100, allow_headerless=True)
+        # Commenting out point cloud stuff because that doesn't work for some reason
         ts.registerCallback(self.callback)
+        # ts.registerCallback(self.image_callback)
+
+    def image_callback(self, image, info):
+        try:
+            intrinsic_matrix = get_camera_matrix(info)
+            rgb_image = ros_numpy.numpify(image)
+        except Exception as e:
+            rospy.logerr(e)
+            return
+        self.num_steps += 1
+        self.messages.appendleft((None, rgb_image, intrinsic_matrix, info.D))
 
     def callback(self, points_msg, image, info):
+        """Use this once we have points!"""
         try:
             intrinsic_matrix = get_camera_matrix(info)
             rgb_image = ros_numpy.numpify(image)
@@ -65,41 +79,25 @@ class PointcloudProcess:
             rospy.logerr(e)
             return
         self.num_steps += 1
-        self.messages.appendleft((points, rgb_image, intrinsic_matrix))
+        self.messages.appendleft((points, rgb_image, intrinsic_matrix, info.D))
 
     def publish_once_from_queue(self):
         if self.messages:
-            points, image, info = self.messages.pop()
+            points, image, info, distortion = self.messages.pop()
             try:
                 trans, rot = self.listener.lookupTransform(
-                                                       '/camera_rgb_optical_frame',
-                                                       '/camera_depth_optical_frame',
+                                                       self.rgb_frame,
+                                                       'base_link',
                                                        rospy.Time(0))
+                print(trans, tf.transformations.quaternion_matrix(rot)[:3, :3])
                 rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
             except (tf.LookupException,
-                    tf.ConnectivityException, 
+                    tf.ConnectivityException,
                     tf.ExtrapolationException):
                 return
 
-            cv2.imshow('image', image)
-            cv2.waitKey(1)
-            points_msg = numpy_to_pc2_msg(points)
+            dostuff(points, image, info, trans, rot, distortion)
+            # points_msg = numpy_to_pc2_msg(points)
             # self.points_pub.publish(points_msg)
             # print("Published segmented pointcloud at timestamp:",
                    # points_msg.header.stamp.secs)
-
-def main():
-    CAM_INFO_TOPIC = '/camera/rgb/camera_info'
-    RGB_IMAGE_TOPIC = '/camera/rgb/image_color'
-    POINTS_TOPIC = '/camera/depth_registered/image'
-
-    rospy.init_node('realsense_listener')
-    process = PointcloudProcess(POINTS_TOPIC, RGB_IMAGE_TOPIC, CAM_INFO_TOPIC)
-    r = rospy.Rate(1000)
-
-    while not rospy.is_shutdown():
-        process.publish_once_from_queue()
-        r.sleep()
-
-if __name__ == '__main__':
-    main()
