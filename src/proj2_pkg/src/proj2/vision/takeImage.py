@@ -24,7 +24,7 @@ def takeImage(data):
         try:
             # Convert ROS Image message to CV2 and save
             cv2_img = bridge.imgmsg_to_cv2(data, "bgr8")
-            cv2.imwrite('./src/camera_image.png', cv2_img)
+            cv2.imwrite('camera_image.png', cv2_img)
             exit
 
         except CvBridgeError as e:
@@ -37,7 +37,7 @@ def startImages():
     # Subscriber setup
     subscriber = rospy.Subscriber(image_topic, Image, takeImage)
 
-def stop_saving():
+def stopImages():
     global save_image
     global subscriber
 
