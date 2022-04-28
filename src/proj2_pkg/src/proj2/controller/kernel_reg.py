@@ -85,10 +85,13 @@ class ParameterEstimatorKernel():
 
 if __name__ == "__main__":
     # unit test
-    X = np.linspace(0, 1, 20).reshape(-1, 1)
-    # X += np.random.normal(0, 0.1, X.shape)
-    y = np.sin(10*X) + np.random.normal(0, 0.3, X.shape)
-    y = y.squeeze()
+    # X = np.linspace(0, 1, 20).reshape(-1, 1)
+    # # X += np.random.normal(0, 0.1, X.shape)
+    # y = np.sin(10*X) + np.random.normal(0, 0.3, X.shape)
+    # y = y.squeeze()
+
+    X = np.array([[1,0], [0,1]])
+    y = np.array([[1], [0.2]])
 
     # plot the data
     import matplotlib.pyplot as plt
@@ -102,9 +105,10 @@ if __name__ == "__main__":
     regressor.reestimate(X, y)
 
     # predict
-    X_pred = X = np.linspace(0, 1, 30).reshape(-1, 1) #np.array([[0], [1], [2], [3], [4]])
+    X_pred = X #= np.linspace(0, 2, 30).reshape(-1, 1) #np.array([[0], [1], [2], [3], [4]])
 
     y_pred, epistemic_uncertainty, y_uncertainty = regressor.predict(X_pred)
+    print(y_pred)
 
     # plot the prediction
     plt.plot(X_pred, y_pred, 'b-')
