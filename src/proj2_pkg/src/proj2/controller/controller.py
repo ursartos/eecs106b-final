@@ -80,7 +80,7 @@ class UnicycleModelController(object):
         prev_state_change_time = prev_t
 
         sys_id_count = 0
-        sys_id_period = 3
+        sys_id_period = 1
         while not rospy.is_shutdown():
             t = (rospy.Time.now() - start_t).to_sec()
 
@@ -94,7 +94,7 @@ class UnicycleModelController(object):
             else:
                 break
 
-            current_terrain_vector = self.current_pos_to_terrain(state[:2], terrains)[0] # eventually this will be made into vision-based
+            current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
 
@@ -175,6 +175,9 @@ class UnicycleModelController(object):
         X_k = np.array(X_k)
         y_d = np.array(y_d)
         y_k = np.array(y_k)
+
+        print("d", y_d)
+        print("X_d", X_d)
 
         if X_d.shape[0] > 0:
             print("D shapes", X_d.shape, y_d.shape)

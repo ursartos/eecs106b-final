@@ -3,8 +3,8 @@ from sklearn.metrics.pairwise import pairwise_kernels
 
 
 class KernelRegression():
-    def __init__(self, sigma=0.1, prior=1, prior_strength=0.001):
-        self.sigma = 0.1
+    def __init__(self, sigma=0.1, prior=1, prior_strength=0.1):
+        self.sigma = sigma
         self.X = None
         self.y = None
         self.sigma = sigma
