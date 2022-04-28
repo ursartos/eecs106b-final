@@ -103,11 +103,13 @@ if __name__ == '__main__':
     print("Initial State")
     print(controller.state)
 
-    start = np.array([1, 1, 0]) 
+    start = np.array(controller.state) 
     goal = np.array([args.x, args.y, args.theta])
 
     terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high)
+    # print(terrain_visual_features)
     terrain_map = get_terrain_kd(terrain_visual_features, controller)
+    # print(terrain_map)
 
     args.planner = 'opt'
 
@@ -123,7 +125,7 @@ if __name__ == '__main__':
         plan = planner.plan_to_pose(controller.state, goal, dt=0.05, prefix_time_length=0.05)
 
     elif args.planner == 'opt':
-        goals = [[1, 1, 0], goal]
+        goals = [start, goal]
         counter = 1
         while True:
             plt.imshow(terrain_map[:, :, 0])
