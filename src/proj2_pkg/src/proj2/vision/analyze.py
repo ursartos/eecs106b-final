@@ -73,7 +73,7 @@ def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
                 average = img.sum(axis=(0,1)) / n
                 grid[gy, gx] = average
 
-    cv2.imshow('grid', grid)
+    cv2.imshow('grid', cv2.resize(grid, None, fx=10, fy=10))
     cv2.waitKey(1)
 
 # Modified from 106a lab
