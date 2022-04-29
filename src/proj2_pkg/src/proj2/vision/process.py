@@ -45,7 +45,7 @@ class PointcloudProcess:
 
         self.listener = tf.TransformListener()
 
-        image_sub = message_filters.Subscriber(image_sub_topic, Image, image_callback)
+        image_sub = rospy.Subscriber(image_sub_topic, Image, self.image_callback)
 
     def image_callback(self, image):
         try:
@@ -54,21 +54,22 @@ class PointcloudProcess:
             rospy.logerr(e)
             return
         self.num_steps += 1
-        self.messages.appendleft(rgb_image)
+        time = image.header.stamp
+        self.messages.appendleft((time, rgb_image))
 
     def publish_once_from_queue(self):
         if self.messages:
-            image = self.messages.pop()
+            time, image = self.messages.pop()
             try:
-                trans, rot = self.listener.lookupTransform('odom', 'base_link', rospy.Time(0))
+                trans, rot = self.listener.lookupTransform('odom', 'base_link', time)
                 rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
                 T_world_base = (rot, trans)
 
-                trans, rot = self.listener.lookupTransform(self.rgb_frame, 'odom', rospy.Time(0))
+                trans, rot = self.listener.lookupTransform(self.rgb_frame, 'odom', time)
                 rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
                 T_rgb_world = (rot, trans)
             except (tf.LookupException,
                     tf.ConnectivityException,
                     tf.ExtrapolationException):
                 return
-            dostuff(image. self.intrinsic_matrix, T_world_base, T_rgb_world)
+            dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
