@@ -50,7 +50,6 @@ class UnicycleModelController(object):
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
                 d, k = terrain[1], terrain[2]
                 # print([commanded[0] * d, commanded[1] * k])
-
         return [commanded[0] * d, commanded[1] * k]
 
     def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
@@ -61,6 +60,7 @@ class UnicycleModelController(object):
         ----------
         plan : :obj: Plan. See configuration_space.Plan
         """
+        terrains = mock_terrains
         if len(plan) == 0:
             return
         print("plan dt", plan.dt)
@@ -95,9 +95,9 @@ class UnicycleModelController(object):
                 break
 
             # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
-            rounded_coordinates = 
-            current_terrain_vector = 
-            est_d, est_k = 
+            rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
+            current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
+            est_d, est_k = terrain_map[tuple(rounded_coordinates)]
 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
@@ -187,6 +187,8 @@ class UnicycleModelController(object):
 
         if X_d.shape[0] > 0:
             print("D shapes", X_d.shape, y_d.shape)
+            D_horz_concat = np.hstack((X_d, y_d.reshape((-1, 1))))
+            print(D_horz_concat)
             self.d_estimator.reestimate(X_d, y_d)
         if X_k.shape[0] > 0:
             print("K shapes", X_k.shape, y_k.shape)
@@ -230,8 +232,8 @@ class UnicycleModelController(object):
         taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
-        actual_vel_cmd = max(min(self.vel_cmd, 2), -2)
-        control_input[0] = actual_vel_cmd
+        self.vel_cmd = max(min(self.vel_cmd, 2), -2)
+        control_input[0] = self.vel_cmd
 
         self.cmd(self.mock_velocity(cur_position, control_input, terrains))
         return control_input
