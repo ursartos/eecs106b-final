@@ -131,6 +131,7 @@ def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length,
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
         dist = np.linalg.norm(path[j+1] - path[j])
         segment_density = dist*(density + 1)/float(current_d)
+        print("segment density", segment_density, "d", current_d)
         for step in range(1, int(segment_density)):
             waypoints.append(np.concatenate((path[j] * (1 - step/float(segment_density)) + path[j+1] * (step/float(segment_density)), [theta])))
             inputs.append([0, 0])

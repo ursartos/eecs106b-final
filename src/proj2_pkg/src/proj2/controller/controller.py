@@ -30,6 +30,7 @@ class UnicycleModelController(object):
         self.k_estimator = ParameterEstimatorKernel()
         self.d = 1
         self.k = 1
+        self.debug_input = 2.0
         rospy.on_shutdown(self.shutdown)
 
     # def current_pos_to_terrain(self, pos, terrains):
@@ -45,12 +46,14 @@ class UnicycleModelController(object):
     def mock_velocity(self, pos, commanded, terrains):
         d = 1
         k = 1
-        print(terrains)
+        # print(terrains)
         for i, terrain in enumerate(terrains):
             terrain_corners = terrain[0]
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
                 d, k = terrain[1], terrain[2]
                 # print([commanded[0] * d, commanded[1] * k])
+        mocked = [commanded[0] * d, commanded[1] * k]
+        # print("Commanded, Mocked", commanded, mocked)
         return [commanded[0] * d, commanded[1] * k]
 
     def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
@@ -106,11 +109,9 @@ class UnicycleModelController(object):
             # random tests #
             # target_acceleration=[0,0,0] 
             # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
-            print(target_velocity)
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
-                print("measured vel", cur_velocity)
                 sys_id_count += 1
 
                 if sys_id_count % sys_id_period == 0:
@@ -127,6 +128,8 @@ class UnicycleModelController(object):
             inputs_agg.append(commanded_input)
             rate.sleep()
 
+        self.cmd([0, 0])
+        self.debug_input *= -1.0
         self.estimate_parameters_kernel(self.buffer)
 
     def estimate_parameters_leastsq(self, buffer):
@@ -170,27 +173,47 @@ class UnicycleModelController(object):
             theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
             v, w = buffer_state[3]
             visual_features = buffer_state[4]
-            
-            d_val_x = xdot/(v*np.cos(theta))
-            d_val_y = ydot/(v*np.sin(theta))
-            k_val = theta_dot/w
 
             MAX_CAP = 2
-            if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
-                and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
+            
+            measured_v_vec = np.squeeze(np.array([xdot, ydot]))
+            measured_v = np.sqrt(xdot**2 + ydot**2)
+            expected_velocity_vec = np.squeeze(np.array([v*np.cos(theta), v*np.sin(theta)]))
+            d = np.dot(measured_v_vec, expected_velocity_vec)/np.dot(expected_velocity_vec, expected_velocity_vec)
+            # d = measured_v/abs(v)
+            k = theta_dot/w
+
+            if (abs(d) < MAX_CAP and abs(v) > 0.1):
                 X_d.append(visual_features)
-                y_d.append(np.mean((d_val_x, d_val_y)))
-            if np.isnan(d_val_x) and not np.isnan(d_val_y) \
-                and abs(d_val_y) < MAX_CAP:
-                X_d.append(visual_features)
-                y_d.append(d_val_y)
-            if np.isnan(d_val_y) and not np.isnan(d_val_x) \
-                and abs(d_val_x) < MAX_CAP:
-                X_d.append(visual_features)
-                y_d.append(d_val_x)
-            if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
+                y_d.append(d)
+                print("measured vec", measured_v_vec, "expected vec",
+                      expected_velocity_vec, 'theta', theta, 'v', v)
+                print("d", d)
+            if (abs(k) < MAX_CAP and abs(w) > 0.1):
                 X_k.append(visual_features)
-                y_k.append(k_val)
+                y_k.append(k)
+
+            # component-wise #
+            # d_val_x = xdot/(v*np.cos(theta))
+            # d_val_y = ydot/(v*np.sin(theta))
+            # k_val = theta_dot/w
+
+            # MAX_CAP = 2
+            # if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
+            #     and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
+            #     X_d.append(visual_features)
+            #     y_d.append(np.mean((d_val_x, d_val_y)))
+            # if np.isnan(d_val_x) and not np.isnan(d_val_y) \
+            #     and abs(d_val_y) < MAX_CAP:
+            #     X_d.append(visual_features)
+            #     y_d.append(d_val_y)
+            # if np.isnan(d_val_y) and not np.isnan(d_val_x) \
+            #     and abs(d_val_x) < MAX_CAP:
+            #     X_d.append(visual_features)
+            #     y_d.append(d_val_x)
+            # if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
+            #     X_k.append(visual_features)
+            #     y_k.append(k_val)
 
         X_d = np.array(X_d)
         X_k = np.array(X_k)
@@ -201,12 +224,12 @@ class UnicycleModelController(object):
         # print("X_d", X_d)
 
         if X_d.shape[0] > 0:
-            print("D shapes", X_d.shape, y_d.shape)
+            # print("D shapes", X_d.shape, y_d.shape)
             D_horz_concat = np.hstack((X_d, y_d.reshape((-1, 1))))
-            print(D_horz_concat)
+            # print(D_horz_concat)
             self.d_estimator.reestimate(X_d, y_d)
         if X_k.shape[0] > 0:
-            print("K shapes", X_k.shape, y_k.shape)
+            # print("K shapes", X_k.shape, y_k.shape)
             self.k_estimator.reestimate(X_k, y_k)
 
         self.buffer = []
@@ -249,6 +272,11 @@ class UnicycleModelController(object):
         self.vel_cmd += control_input[0] * dt
         self.vel_cmd = max(min(self.vel_cmd, 2), -2)
         control_input[0] = self.vel_cmd
+
+        # todo: remove
+        # control_input[0] = self.debug_input if cur_position[0] > 0.9 else 0
+        # control_input[1] = 0.0
+        print(control_input)
 
         self.cmd(self.mock_velocity(cur_position, control_input, terrains))
         return control_input
