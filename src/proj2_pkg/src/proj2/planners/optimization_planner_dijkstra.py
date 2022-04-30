@@ -45,7 +45,7 @@ def get_d_for_coords(terrains_grid, point1, point2):
     r = point2[0] - point1[0]
     c = point2[1] - point1[1]
     worst_case_d = float('inf')
-    bottom_left = np.min((point1, point2), axis=1)
+    bottom_left = np.min((point1, point2), axis=0)
     bottom_left = tuple(bottom_left)
     if abs(r) == 1 and c == 0:
         if bottom_left[1] > 0:
@@ -57,6 +57,7 @@ def get_d_for_coords(terrains_grid, point1, point2):
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(r) == 1 and abs(c) == 1:
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
+    print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
@@ -102,6 +103,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     # print(path)
     for node in path:
         real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
+        # print("Added real world point", i_to_xy(terrains_grid, node), i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
         indices.append(i_to_xy(terrains_grid, node))
     print("Created trajectory")
 
@@ -141,7 +143,6 @@ def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length,
 
     # start pose #
     waypoints.append([path[0,0], path[0,1], q_start[2]])
-    path = path.astype(int)
 
     for j in range(0, path.shape[0] - 1):
         current_d = get_d_for_coords(terrain_map, indices[j], indices[j+1])
@@ -214,12 +215,12 @@ def main():
     dt = 0.5
 
     xy_low = [0, 0]
-    xy_high = [3, 3]
+    xy_high = [6, 6]
     u1_max = 2
     u2_max = 3
     obs_list = []#[[2, 1, 1]]#, [-3, 4, 1], [4, 2, 2]]
     q_start = np.array([0, 0, 0])
-    q_goal = np.array([2, 2, 0])
+    q_goal = np.array([5, 5, 0])
 
     ###### SETUP PROBLEM ######
     
@@ -233,16 +234,15 @@ def main():
 
     # terrain1 = ([1, 9, 4, 10], 0.05, 0.05)
     # terrains = [terrain1]
-    terrains = []
+    terrains = [[[2, 3, 2, 3], 0.05, 0.05]]
 
-    res = 1
-    horizon = max(1, res//2)
+    res = 5
     side_length = q_ub[0] - q_lb[0] + 1
     terrain_map = np.ones((res*side_length, res*side_length, 2))
     for terrain in terrains:
         xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
-        k, d = terrain[1:]
-        terrain_map[xmin:xmax, ymin:ymax, :] = [k, d]
+        d, k = terrain[1:]
+        terrain_map[xmin:xmax, ymin:ymax, :] = [d, k]
 
     plan, inputs, n = plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=dt, terrain_map=terrain_map, side_length=side_length)
     plan = plan.T
