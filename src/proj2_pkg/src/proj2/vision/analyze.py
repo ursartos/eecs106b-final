@@ -1,14 +1,14 @@
 import cv2
 import numpy as np
 from .VoxelGrid import VoxelGrid
+from feature_extractor import extract_features
 
 class FeatureGrid(VoxelGrid):
     def __init__(self):
-        super().__init__(voxel_size=0.2, pixels_per_voxel=50, feature_size=3)
+        super().__init__(voxel_size=0.2, pixels_per_voxel=50, feature_size=7)
 
     def compute_features(self, image):
-        average = image.astype(float).sum(axis=(0, 1))
-        return average[:3] / np.sum(average[3])
+        return extract_features(image)
 
 class ImageGrid(VoxelGrid):
     def __init__(self):

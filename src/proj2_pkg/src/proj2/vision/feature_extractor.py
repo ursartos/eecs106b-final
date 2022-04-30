@@ -2,20 +2,24 @@ import cv2
 import numpy as np
 
 
-def extract_features(img_path):
-    img = cv2.imread(img_path)
-
+def extract_features(img):
     # edge = cv2.Canny(img, 200, 250, L2gradient=True)
     # cv2.imshow('image', img)
     # cv2.imshow('edge', edge)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+    print(img.shape)
+    img_reshaped = img.reshape((img.shape[0] * img.shape[1], 4))
+    filter = img_reshaped[:, 3] > 0
+    filtered_img = img_reshaped[filter, :3]
+    filtered_img = np.expand_dims(filtered_img, axis=1)
+    print(filtered_img.shape)
 
     features = []
-    features.extend(average_hsvs(img))
-    features.extend(average_rgbs(img))
+    features.extend(average_hsvs(filtered_img))
+    features.extend(average_rgbs(filtered_img))
     # features.extend(gabor_filters(img))
-    features.append(rms_contrast(img))
+    features.append(rms_contrast(filtered_img))
     return features
 
 
@@ -56,5 +60,6 @@ def rms_contrast(img):
     return img_grey.std()
 
 
-print(extract_features("images/sand.jpg"))
-print(extract_features("images/grass.jpg"))
+print(extract_features(cv2.imread(
+    "images/spongebob-transparent.png", cv2.IMREAD_UNCHANGED)))
+# print(extract_features(cv2.imread("images/grass.jpg")))
