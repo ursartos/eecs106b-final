@@ -67,7 +67,7 @@ class PointcloudProcess:
             rospy.logerr(e)
             return
         self.num_steps += 1
-        self.messages.appendleft((None, rgb_image, intrinsic_matrix))
+        self.messages.appendleft((None, rgb_image, intrinsic_matrix, info.D))
 
     def callback(self, points_msg, image, info):
         """Use this once we have points!"""
@@ -79,23 +79,24 @@ class PointcloudProcess:
             rospy.logerr(e)
             return
         self.num_steps += 1
-        self.messages.appendleft((points, rgb_image, intrinsic_matrix))
+        self.messages.appendleft((points, rgb_image, intrinsic_matrix, info.D))
 
     def publish_once_from_queue(self):
         if self.messages:
-            points, image, info = self.messages.pop()
+            points, image, info, distortion = self.messages.pop()
             try:
                 trans, rot = self.listener.lookupTransform(
                                                        self.rgb_frame,
-                                                       self.depth_frame,
+                                                       'base_link',
                                                        rospy.Time(0))
+                print(trans, tf.transformations.quaternion_matrix(rot)[:3, :3])
                 rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
             except (tf.LookupException,
                     tf.ConnectivityException,
                     tf.ExtrapolationException):
                 return
 
-            dostuff(points, image, info, trans, rot)
+            dostuff(points, image, info, trans, rot, distortion)
             # points_msg = numpy_to_pc2_msg(points)
             # self.points_pub.publish(points_msg)
             # print("Published segmented pointcloud at timestamp:",

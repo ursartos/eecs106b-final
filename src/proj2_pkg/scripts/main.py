@@ -51,6 +51,9 @@ def get_terrain_kd(terrain_map, controller):
             kd_map[i, j] = [max(0.01, d), max(0.01, k)]
     return kd_map
 
+# def get_terrain_image(filename='/path/to/file'):
+    
+
 if __name__ == '__main__':
     rospy.init_node('planning', anonymous=False)
     args = parse_args()
@@ -109,6 +112,7 @@ if __name__ == '__main__':
     # print(terrain_visual_features)
     terrain_map = get_terrain_kd(terrain_visual_features, controller)
     # print(terrain_map)
+    # 1/0
 
     args.planner = 'opt'
 
