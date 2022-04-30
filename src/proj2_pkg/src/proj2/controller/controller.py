@@ -109,6 +109,10 @@ class UnicycleModelController(object):
             # random tests #
             # target_acceleration=[0,0,0] 
             # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
+<<<<<<< HEAD
+=======
+            # print(target_velocity)
+>>>>>>> fa9b289623a9bbe3a5a09e9ebe7cab9173b97b14
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
