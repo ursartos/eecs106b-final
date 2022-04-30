@@ -45,14 +45,14 @@ def get_d_for_coords(terrains_grid, point1, point2):
     r = point2[0] - point1[0]
     c = point2[1] - point1[1]
     worst_case_d = float('inf')
-    bottom_left = np.min((point1, point2), axis=1)
+    bottom_left = tuple(np.hstack((np.min((point1, point2), axis=1), [0])))
     if abs(r) == 1 and c == 0:
         if bottom_left[1] > 0:
-            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0]][bottom_left[1] - 1])
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0]][bottom_left[1] - 1][0])
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
     elif abs(c) == 1 and r == 0:
         if bottom_left[0] > 0:
-            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0] - 1][bottom_left[1]])
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0] - 1][bottom_left[1]][0])
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
     elif abs(r) == 1 and abs(c) == 1:
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
@@ -83,7 +83,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c])
 
                     graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
-                    edges.append(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
+                    edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d))
 
     use_custom_dijkstra = False
 
