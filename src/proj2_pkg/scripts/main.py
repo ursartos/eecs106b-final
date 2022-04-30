@@ -28,10 +28,9 @@ def parse_args():
     parser.add_argument('-theta', type=float, default=0.0, help='Desired turtlebot angle')
     return parser.parse_args()
 
-def get_terrain_map(terrains, xy_low, xy_high):
+def get_terrain_map(terrains, xy_low, xy_high, res=1):
     # this function is mocking the distribution of terrains features on the ground spatially
     terrains = np.array(terrains)
-    res = 1
     side_length = xy_high[0] - xy_low[0] + 1
     terrain_map = np.zeros((res*side_length, res*side_length, len(terrains) + 1))
     terrain_map[:, :, 0] = 1
@@ -99,8 +98,8 @@ if __name__ == '__main__':
 
     print("Obstacles:", obstacles)
     
+    terrain_map_res = 1
     controller = UnicycleModelController()
-
     rospy.sleep(1)
 
     print("Initial State")
@@ -109,7 +108,7 @@ if __name__ == '__main__':
     start = np.array(controller.state) 
     goal = np.array([args.x, args.y, args.theta])
 
-    terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high)
+    terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high, terrain_map_res)
     # print(terrain_visual_features)
     terrain_map = get_terrain_kd(terrain_visual_features, controller)
     # print(terrain_map)
@@ -155,7 +154,9 @@ if __name__ == '__main__':
 
             planner.plot_execution()
 
-            controller.execute_plan(plan, terrains=terrains)
+            controller.execute_plan(plan, terrain_vectors=terrain_visual_features,
+                                          terrain_map=terrain_map, terrain_map_res=terrain_map_res,
+                                          mock_terrains=terrains)
             print("Final State")
             print(controller.state)
 
