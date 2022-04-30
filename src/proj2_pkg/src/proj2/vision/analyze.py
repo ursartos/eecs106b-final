@@ -12,7 +12,7 @@ class FeatureGrid(VoxelGrid):
 
 class ImageGrid(VoxelGrid):
     def __init__(self):
-        super().__init__(voxel_size=0.1, pixels_per_voxel=1, feature_size=3)
+        VoxelGrid.__init__(self, voxel_size=0.01, pixels_per_voxel=1, feature_size=3)
 
     def compute_features(self, image):
         average = image.astype(float).sum(axis=(0, 1))
