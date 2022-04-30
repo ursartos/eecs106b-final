@@ -59,10 +59,10 @@ class VoxelGrid(object):
         # Project the bounds of the camera into the world frame
         # Then determine the range of voxels the camera image covers
         points_t = np.matmul(rot_base_world, POINTS.T) + np.array(trans_base_world).reshape((3,1))
-        x_min = np.floor(np.min(points_t[0]) / self.voxel_size) * self.voxel_size
-        x_max = np.ceil(np.max(points_t[0]) / self.voxel_size) * self.voxel_size
-        y_min = np.floor(np.min(points_t[1]) / self.voxel_size) * self.voxel_size
-        y_max = np.ceil(np.max(points_t[1]) / self.voxel_size) * self.voxel_size
+        x_min = max(np.floor(np.min(points_t[0]) / self.voxel_size) * self.voxel_size, GRID_X_MIN)
+        x_max = min(np.ceil(np.max(points_t[0]) / self.voxel_size) * self.voxel_size, GRID_X_MAX)
+        y_min = max(np.floor(np.min(points_t[1]) / self.voxel_size) * self.voxel_size, GRID_Y_MIN)
+        y_max = min(np.ceil(np.max(points_t[1]) / self.voxel_size) * self.voxel_size, GRID_Y_MAX)
 
         # Number of voxels that the image covers
         voxels_x = int(round((x_max - x_min) / self.voxel_size))
@@ -105,17 +105,10 @@ class VoxelGrid(object):
                      for x in range(start_x, start_x + voxels_x)
                     ])
 
-        def is_valid_position(position):
-            (gy,gx) = position
-            return gx >= 0 and gy >= 0 and gx < self.g_w and gy < self.g_h
-
-        valid = np.apply_along_axis(is_valid_position, 1, positions)
-        positions = positions[valid]
-        voxels = voxels[valid]
-
         # Compute features for voxels
         features = self.compute_features(voxels)
-        
+
+        # Filter out nan filters
         good = ~np.any(np.isnan(features), axis=1)
         features = features[good]
         positions = positions[good]
