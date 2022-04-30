@@ -13,7 +13,7 @@ from std_srvs.srv import Empty as EmptySrv
 import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, UnicycleConfigurationSpace # SinusoidPlanner
-# from gp import GaussianProcessRegressionWrapper
+from kernel_reg import ParameterEstimatorKernel
 
 TERRAIN_DIM = 1
 
@@ -26,21 +26,34 @@ class UnicycleModelController(object):
         self.sub = rospy.Subscriber('/unicycle/state', UnicycleStateMsg, self.subscribe)
         self.state = UnicycleStateMsg()
         self.buffer = []
-        # self.d_estimator = GaussianProcessRegressionWrapper()
-        # self.k_estimator = GaussianProcessRegressionWrapper()
+        self.d_estimator = ParameterEstimatorKernel()
+        self.k_estimator = ParameterEstimatorKernel()
+        self.d = 1
+        self.k = 1
         rospy.on_shutdown(self.shutdown)
 
-    def current_pos_to_terrain(self, pos, terrains):
-        terrain_vec = np.zeros(TERRAIN_DIM + 1)
+    # def current_pos_to_terrain(self, pos, terrains):
+    #     terrain_vec = np.zeros(TERRAIN_DIM + 1)
+    #     for i, terrain in enumerate(terrains):
+    #         terrain_corners = terrain[0]
+    #         if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
+    #             terrain_vec[i + 1] = 1
+    #             return terrain_vec, terrain[1], terrain[2]
+    #     terrain_vec[0] = 1
+    #     return terrain_vec, 1, 1
+
+    def mock_velocity(self, pos, commanded, terrains):
+        d = 1
+        k = 1
+        print(terrains)
         for i, terrain in enumerate(terrains):
             terrain_corners = terrain[0]
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
-                terrain_vec[i + 1] = 1
-                return terrain_vec, terrain[1], terrain[2]
-        terrain_vec[0] = 1
-        return terrain_vec, 1, 1
+                d, k = terrain[1], terrain[2]
+                # print([commanded[0] * d, commanded[1] * k])
+        return [commanded[0] * d, commanded[1] * k]
 
-    def execute_plan(self, plan, terrains=[]):
+    def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
         """
         Executes a plan made by the planner
 
@@ -48,8 +61,10 @@ class UnicycleModelController(object):
         ----------
         plan : :obj: Plan. See configuration_space.Plan
         """
+        terrains = mock_terrains
         if len(plan) == 0:
             return
+        print("plan dt", plan.dt)
         rate = rospy.Rate(int(1 / plan.dt))
         start_t = rospy.Time.now()
         cur_state = self.state
@@ -66,7 +81,7 @@ class UnicycleModelController(object):
         prev_state_change_time = prev_t
 
         sys_id_count = 0
-        sys_id_period = 100
+        sys_id_period = 1
         while not rospy.is_shutdown():
             t = (rospy.Time.now() - start_t).to_sec()
 
@@ -80,23 +95,39 @@ class UnicycleModelController(object):
             else:
                 break
 
-            current_terrain_vector = self.current_pos_to_terrain(state[:2], terrains)[0] # eventually this will be made into vision-based
+            # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
+            rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
+            current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
+            est_d, est_k = terrain_map[tuple(rounded_coordinates)]
+
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
 
+            # random tests #
+            # target_acceleration=[0,0,0] 
+            # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
+            # print(target_velocity)
+
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
-                prev_state_change_time = t
+                print("measured vel", cur_velocity)
                 sys_id_count += 1
 
                 if sys_id_count % sys_id_period == 0:
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
-                    self.estimate_parameters_leastsq(self.buffer, self.terrain)
+                    # print("visual feature", current_terrain_vector)
+                    # self.estimate_parameters_kernel(self.buffer)
+
+                prev_state_change_time = t
 
             cur_state = self.state
-            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt)
+            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration,
+                                                cur_state, cur_velocity, cmd, dt, terrains=terrains,
+                                                est_d=est_d, est_k=est_k)
             inputs_agg.append(commanded_input)
             rate.sleep()
+
+        self.estimate_parameters_kernel(self.buffer)
 
     def estimate_parameters_leastsq(self, buffer):
         if len(buffer) < 4:
@@ -115,36 +146,74 @@ class UnicycleModelController(object):
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
         
-        print(self.d)
-        
         # print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
 
     def estimate_parameters_gp(self, buffer):
         for i in range(len(self.d_est), len(buffer)):
             buffer_state = buffer[i]
             xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
-            theta = (buffer_state[0] + buffer_state[1])[2] / 2
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
             v, w = buffer_state[3]
             self.d_est = np.append(self.d_est, [v*np.cos(theta), v*np.sin(theta)])
             self.d_goal = np.append(self.d_goal, [xdot, ydot])
             self.k_est = np.append(self.k_est, [w])
             self.k_goal = np.append(self.k_goal, [theta_dot])
 
+    def estimate_parameters_kernel(self, buffer):
+        print(buffer)
+        X_d = []
+        X_k = []
+        y_d = []
+        y_k = []
+        for buffer_state in buffer:
+            xdot, ydot, theta_dot = (buffer_state[1] - buffer_state[0])[:3] / buffer_state[2]
+            theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
+            v, w = buffer_state[3]
+            visual_features = buffer_state[4]
+            
+            d_val_x = xdot/(v*np.cos(theta))
+            d_val_y = ydot/(v*np.sin(theta))
+            k_val = theta_dot/w
 
-    def dist(self, orig_pt, dir, target):
-        """
-        https://stackoverflow.com/questions/39840030/distance-between-point-and-a-line-from-two-points
-        """
-        # p1 = orig_pt
-        # p2 = orig_pt + np.array([-dir[1], dir[0]])
-        # p3 = target
-        # return np.linalg.norm(np.cross(p2-p1, p1-p3))/np.linalg.norm(p2-p1)
-        if np.linalg.norm(target - orig_pt) < 0.001:
-            return 0
+            MAX_CAP = 2
+            if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
+                and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
+                X_d.append(visual_features)
+                y_d.append(np.mean((d_val_x, d_val_y)))
+            elif np.isnan(d_val_x) and not np.isnan(d_val_y) \
+                and abs(d_val_y) < MAX_CAP:
+                X_d.append(visual_features)
+                y_d.append(d_val_y)
+            elif np.isnan(d_val_y) and not np.isnan(d_val_x) \
+                and abs(d_val_x) < MAX_CAP:
+                X_d.append(visual_features)
+                y_d.append(d_val_x)
+            if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
+                X_k.append(visual_features)
+                y_k.append(k_val)
 
-        return np.dot(dir, target - orig_pt)/np.sqrt(np.dot(target - orig_pt, target - orig_pt))
+        X_d = np.array(X_d)
+        X_k = np.array(X_k)
+        y_d = np.array(y_d)
+        y_k = np.array(y_k)
 
-    def step_control(self, cmd, target_position, target_velocity, target_acceleration, cur_position, cur_velocity, open_loop_input, dt):
+        # print("d", y_d)
+        # print("X_d", X_d)
+
+        if X_d.shape[0] > 0:
+            print("D shapes", X_d.shape, y_d.shape)
+            D_horz_concat = np.hstack((X_d, y_d.reshape((-1, 1))))
+            print(D_horz_concat)
+            self.d_estimator.reestimate(X_d, y_d)
+        if X_k.shape[0] > 0:
+            print("K shapes", X_k.shape, y_k.shape)
+            self.k_estimator.reestimate(X_k, y_k)
+
+        self.buffer = []
+
+    def step_control(self, cmd, target_position, target_velocity, target_acceleration,
+                     cur_position, cur_velocity, open_loop_input, dt, terrains=[],
+                     est_d=1, est_k=1):
         """Specify a control law. For the grad/EC portion, you may want
         to edit this part to write your own closed loop controller.
         Note that this class constantly subscribes to the state of the robot,
@@ -163,10 +232,9 @@ class UnicycleModelController(object):
         """
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
-        # print(v, theta)
-        # print(np.cos(theta))
-        # print(-np.sin(theta)/v)
 
+        self.k = est_k
+        self.d = est_d
         if abs(v) > 0.01:
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                             [-np.sin(theta)/(v*self.k), np.cos(theta)/(v*self.k)]])
@@ -174,54 +242,16 @@ class UnicycleModelController(object):
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                               [0, 0]])
 
-        # Kp = 0.1 * np.eye(2)
-        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 0.5 * (target_velocity[:2] - cur_velocity[:2])
-        # print("Target acceleration", taus, target_acceleration[:2])
-
+        # print(target_position[:2], target_position[:2] - cur_position[:2])
+        # print(target_velocity[:2], cur_velocity[:2])
+        taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
-        # print("inputs", control_input)
-
         self.vel_cmd += control_input[0] * dt
-        # print("vel cmd", self.vel_cmd)
-        # print("open loop", open_loop_input)
+        self.vel_cmd = max(min(self.vel_cmd, 2), -2)
         control_input[0] = self.vel_cmd
-        # self.cmd(control_input)
-        # self.cmd(cmd)
-        print(control_input)
+
+        self.cmd(self.mock_velocity(cur_position, control_input, terrains))
         return control_input
-
-        # self.target_positions.append(target_position)
-        # self.actual_nppositions.append(self.state)
-    
-        # # get x coordinate of the point in the robot's coordinate frame
-        # robot_unit_vec = np.array([np.cos(self.state[2]), np.sin(self.state[2])])
-        # forward_dist = self.dist(self.state[:2], robot_unit_vec, target_position[:2])
-        # right_dist = self.dist(self.state[:2], np.array([robot_unit_vec[1], -robot_unit_vec[0]]), target_position[:2])
-        # # get distance from line of unit vec to target position
-        # Kp_side = 1.0
-        # Kp_dtheta = 0.5 #1.5 #-1.0
-        # Kp_dphi = 2.0 #1 #-1.0
-        # Kp_vel = 4.0
-
-        # dtheta = (target_position[2] - self.state[2])
-        # target_steering = (Kp_dtheta * dtheta) * np.sign(open_loop_input[0]) + (Kp_side * right_dist if open_loop_input[0] > 0 else -Kp_side * right_dist)
-        # # target_phi_dot = Kp_dphi*(target_steering - self.state[3]) + 0.4 * (target_position[3] - self.state[3]) / (open_loop_input[0] if open_loop_input[0] > 0 else 1)
-
-        # print("vals", dtheta, target_steering, forward_dist, open_loop_input[1])
-
-        # # print(forward_dist, right_dist, target_position[2] - self.state[2])
-        # # print("phi", self.state[3], "theta", self.state[2], "target theta", target_position[2])
-        # # if abs(open_loop_input[0] - 0) < 0.01:
-        # #     open_loop_adjusted = (open_loop_input[0] + np.sign(open_loop_input[0])*0.01)
-        # # else:
-        # #     open_loop_adjusted = 100000000000
-        # inp = (open_loop_input + 1.0*np.array([forward_dist*Kp_vel, target_steering])) #Kp_side * right_dist * np.sign(open_loop_input[0]) + Kp_dtheta * (target_position[2] - self.state[2])]))
-
-        # inp[0] = min(inp[0], max(inp[0], -2.0), 2.0)
-        # inp[1] = min(inp[1], max(inp[1], -3.0), 3.0)
-
-        # self.cmd(inp)
-
 
     def cmd(self, msg):
         """
