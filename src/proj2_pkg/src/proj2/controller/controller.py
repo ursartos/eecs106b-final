@@ -32,15 +32,15 @@ class UnicycleModelController(object):
         self.k = 1
         rospy.on_shutdown(self.shutdown)
 
-    def current_pos_to_terrain(self, pos, terrains):
-        terrain_vec = np.zeros(TERRAIN_DIM + 1)
-        for i, terrain in enumerate(terrains):
-            terrain_corners = terrain[0]
-            if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
-                terrain_vec[i + 1] = 1
-                return terrain_vec, terrain[1], terrain[2]
-        terrain_vec[0] = 1
-        return terrain_vec, 1, 1
+    # def current_pos_to_terrain(self, pos, terrains):
+    #     terrain_vec = np.zeros(TERRAIN_DIM + 1)
+    #     for i, terrain in enumerate(terrains):
+    #         terrain_corners = terrain[0]
+    #         if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
+    #             terrain_vec[i + 1] = 1
+    #             return terrain_vec, terrain[1], terrain[2]
+    #     terrain_vec[0] = 1
+    #     return terrain_vec, 1, 1
 
     def mock_velocity(self, pos, commanded, terrains):
         d = 1
@@ -53,7 +53,7 @@ class UnicycleModelController(object):
 
         return [commanded[0] * d, commanded[1] * k]
 
-    def execute_plan(self, plan, terrains=[]):
+    def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
         """
         Executes a plan made by the planner
 
@@ -94,7 +94,11 @@ class UnicycleModelController(object):
             else:
                 break
 
-            current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
+            # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
+            rounded_coordinates = 
+            current_terrain_vector = 
+            est_d, est_k = 
+
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
 
@@ -110,7 +114,9 @@ class UnicycleModelController(object):
                 prev_state_change_time = t
 
             cur_state = self.state
-            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt, terrains=terrains)
+            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration,
+                                                cur_state, cur_velocity, cmd, dt, terrains=terrains,
+                                                est_d=est_d, est_k=est_k)
             inputs_agg.append(commanded_input)
             rate.sleep()
 
@@ -188,7 +194,9 @@ class UnicycleModelController(object):
 
         self.buffer = []
 
-    def step_control(self, cmd, target_position, target_velocity, target_acceleration, cur_position, cur_velocity, open_loop_input, dt, terrains=[]):
+    def step_control(self, cmd, target_position, target_velocity, target_acceleration,
+                     cur_position, cur_velocity, open_loop_input, dt, terrains=[],
+                     est_d=1, est_k=1):
         """Specify a control law. For the grad/EC portion, you may want
         to edit this part to write your own closed loop controller.
         Note that this class constantly subscribes to the state of the robot,
@@ -208,6 +216,8 @@ class UnicycleModelController(object):
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
 
+        self.k = est_k
+        self.d = est_d
         if abs(v) > 0.01:
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                             [-np.sin(theta)/(v*self.k), np.cos(theta)/(v*self.k)]])
