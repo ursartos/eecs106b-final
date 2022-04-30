@@ -85,7 +85,7 @@ def make_empty_map():
 	create_map([], 5, 5, "empty")
 
 def make_terrain_map():
-	create_map([], 10, 4, "terrain_noavoid", terrains=[[[3, 6], [0, 4], 0.1, 1]], resolution=0.05)
+	create_map([], 10, 4, "terrain_noavoid", terrains=[[[3, 6], [0, 4], 0.1, 1]], resolution=0.01)
 
 if __name__ == '__main__':
 	# make_map1()
