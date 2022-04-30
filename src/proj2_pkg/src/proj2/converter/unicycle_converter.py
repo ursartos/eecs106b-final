@@ -92,6 +92,7 @@ class UnicycleConverter():
     def command_listener(self, msg):
         msg.steering_rate = max(min(msg.steering_rate, self.max_steering_rate), -self.max_steering_rate)
         msg.linear_velocity = max(min(msg.linear_velocity, self.max_linear_velocity), -self.max_linear_velocity)
+        self.true_k = msg
 
         self.command = msg
         self.last_time = rospy.Time.now() # Save the time of last command for safety
@@ -103,7 +104,7 @@ class UnicycleConverter():
         theta = tf.transformations.euler_from_quaternion([o.x, o.y, o.z, o.w])
         self.state.theta = theta[2]
 
-    def run(self):
+    def run(self, terrains = []):
         while not rospy.is_shutdown():
 
             # If we aren't using sim, get the state
@@ -139,7 +140,7 @@ class UnicycleConverter():
 
             # We output velocity and yaw based on the unicycle model
             output = Twist()
-            output.linear.x = self.command.linear_velocity * (1 + np.random.normal(0, 0)) * np.random.randint(0, 2)
+            output.linear.x = self.command.linear_velocity# * (1 + np.random.normal(0, 0)) * np.random.randint(0, 2)
             output.angular.z = self.command.steering_rate
 
             self.command_publisher.publish(output)

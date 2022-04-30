@@ -5,6 +5,7 @@
 
     <group if="$(eval map == 'empty.yaml')">
         <rosparam>
+            environment/terrains: []
             environment/obstacles: []
             environment/low_lims: [0, 0]
             environment/high_lims: [5, 5]
@@ -24,6 +25,26 @@
             environment/obstacles: [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]]
             environment/low_lims: [0, 0]
             environment/high_lims: [10, 10]
+        </rosparam>
+    </group>
+
+    <group if="$(eval map == 'terrains.yaml')">
+        <rosparam>
+            environment/terrains: [[[4, 8, 4, 8], 0.1, 0.1]]
+            environment/obstacles: []
+            <!-- [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]] -->
+            environment/low_lims: [0, 0]
+            environment/high_lims: [10, 10]
+        </rosparam>
+    </group>
+    
+    <group if="$(eval map == 'terrain_noavoid.yaml')">
+        <rosparam>
+            environment/terrains: [[[3, 6, 0, 4], 0.1, 0.1]]
+            environment/obstacles: []
+            <!-- [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]] -->
+            environment/low_lims: [0, 0]
+            environment/high_lims: [10, 4]
         </rosparam>
     </group>
 

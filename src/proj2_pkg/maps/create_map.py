@@ -15,7 +15,7 @@ class Obstacle():
 		self.center = (center_x, center_y)
 		self.radius = radius
 
-def create_grid(obstacle_list, width, height, resolution=0.01):
+def create_grid(obstacle_list, width, height, resolution=0.01, terrains=[]):
 	"""Creates a grid representing the map with obstacles
 	in obstacle_list.
 
@@ -29,14 +29,23 @@ def create_grid(obstacle_list, width, height, resolution=0.01):
 	def m_to_pix(*nums):
 		return [int(x / resolution) for x in nums]
 
-	m = np.ones(m_to_pix(height, width))
-	for obstacle in obstacle_list:
-		x_c, y_c = m_to_pix(*obstacle.center)
-		r, = m_to_pix(obstacle.radius)
-		for x in range(x_c - r, x_c + r):
-			for y in range(y_c - r, y_c + r):
-				if ((x - x_c)**2 + (y - y_c)**2) <= r**2:
-					m[y][x] = 0
+	m = np.ones(m_to_pix(height, width) + [3])
+	# for obstacle in obstacle_list:
+	# 	x_c, y_c = m_to_pix(*obstacle.center)
+	# 	r, = m_to_pix(obstacle.radius)
+	# 	for x in range(x_c - r, x_c + r):
+	# 		for y in range(y_c - r, y_c + r):
+	# 			if ((x - x_c)**2 + (y - y_c)**2) <= r**2:
+	# 				m[y][x] = 0
+
+	for terrain in terrains:
+		x1, x2 = m_to_pix(*(terrain[0]))
+		y1, y2 = m_to_pix(*(terrain[1]))
+		d, k = (terrain[2], terrain[3])
+		for x in range(x1, x2):
+			for y in range(y1, y2):
+				m[y][x] = [1, d, k]
+
 	m = m[::-1]
 	return m
 
@@ -54,10 +63,10 @@ def create_yaml(png, name, resolution=0.01):
 	f.write('free_thresh: 0.3\n')
 	f.write('negate: 0\n')
 
-def create_map(obstacle_list, width, height, name, resolution=0.01):
-	m = create_grid(obstacle_list, width, height, resolution)
+def create_map(obstacle_list, width, height, name, resolution=0.01, terrains=[]):
+	m = create_grid(obstacle_list, width, height, resolution, terrains=terrains)
 	create_png(m, name)
-	create_yaml("{}.png".format(name), name)
+	create_yaml("{}.png".format(name), name, resolution=resolution)
 
 def make_map1():
 	obstacle1 = Obstacle(6, 3.5, 1.5)
@@ -75,7 +84,11 @@ def make_map2():
 def make_empty_map():
 	create_map([], 5, 5, "empty")
 
+def make_terrain_map():
+	create_map([], 10, 4, "terrain_noavoid", terrains=[[[3, 6], [0, 4], 0.1, 1]], resolution=0.01)
+
 if __name__ == '__main__':
-	make_map1()
-	make_map2()
-	make_empty_map()
+	# make_map1()
+	# make_map2()
+	# make_empty_map()
+	make_terrain_map()
