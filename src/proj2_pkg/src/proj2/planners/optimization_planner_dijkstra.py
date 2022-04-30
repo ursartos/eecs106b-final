@@ -46,16 +46,17 @@ def get_d_for_coords(terrains_grid, point1, point2):
     c = point2[1] - point1[1]
     worst_case_d = float('inf')
     bottom_left = np.min((point1, point2), axis=1)
+    bottom_left = tuple(bottom_left)
     if abs(r) == 1 and c == 0:
         if bottom_left[1] > 0:
-            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0]][bottom_left[1] - 1])
-        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0]][bottom_left[1] - 1][0])
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(c) == 1 and r == 0:
         if bottom_left[0] > 0:
-            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0] - 1][bottom_left[1]])
-        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0] - 1][bottom_left[1]][0])
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(r) == 1 and abs(c) == 1:
-        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     return worst_case_d
 
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
@@ -64,8 +65,6 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
     print("Start", start_node, "Goal", goal_node)
-
-    # print(terrains_grid.shape)
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
@@ -83,7 +82,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c])
 
                     graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
-                    edges.append(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
+                    edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d))
 
     use_custom_dijkstra = False
 
@@ -104,7 +103,8 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     for node in path:
         real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
         indices.append(i_to_xy(terrains_grid, node))
-    
+    print("Created trajectory")
+
     return np.asarray(real_world_points), np.array(indices)
 
 def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, density=100, terrain_map=None, side_length=None):
@@ -141,9 +141,10 @@ def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length,
 
     # start pose #
     waypoints.append([path[0,0], path[0,1], q_start[2]])
+    path = path.astype(int)
 
     for j in range(0, path.shape[0] - 1):
-        current_d = get_d_for_coords(terrain_map, path[j], path[j+1])
+        current_d = get_d_for_coords(terrain_map, indices[j], indices[j+1])
         # make sure the last cell is the goal position #
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
         dist = np.linalg.norm(path[j+1] - path[j])
