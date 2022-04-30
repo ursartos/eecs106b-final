@@ -45,6 +45,7 @@ class UnicycleModelController(object):
     def mock_velocity(self, pos, commanded, terrains):
         d = 1
         k = 1
+        print(terrains)
         for i, terrain in enumerate(terrains):
             terrain_corners = terrain[0]
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
@@ -102,8 +103,14 @@ class UnicycleModelController(object):
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
 
+            # random tests #
+            # target_acceleration=[0,0,0] 
+            # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
+            print(target_velocity)
+
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
+                print("measured vel", cur_velocity)
                 sys_id_count += 1
 
                 if sys_id_count % sys_id_period == 0:
@@ -173,6 +180,14 @@ class UnicycleModelController(object):
                 and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
                 X_d.append(visual_features)
                 y_d.append(np.mean((d_val_x, d_val_y)))
+            if np.isnan(d_val_x) and not np.isnan(d_val_y) \
+                and abs(d_val_y) < MAX_CAP:
+                X_d.append(visual_features)
+                y_d.append(d_val_y)
+            if np.isnan(d_val_y) and not np.isnan(d_val_x) \
+                and abs(d_val_x) < MAX_CAP:
+                X_d.append(visual_features)
+                y_d.append(d_val_x)
             if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
                 X_k.append(visual_features)
                 y_k.append(k_val)
@@ -182,8 +197,8 @@ class UnicycleModelController(object):
         y_d = np.array(y_d)
         y_k = np.array(y_k)
 
-        print("d", y_d)
-        print("X_d", X_d)
+        # print("d", y_d)
+        # print("X_d", X_d)
 
         if X_d.shape[0] > 0:
             print("D shapes", X_d.shape, y_d.shape)
