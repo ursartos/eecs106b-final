@@ -46,7 +46,7 @@
             environment/low_lims: [0, 0]
             environment/high_lims: [10, 4]
         </rosparam>
-    </group>empty.yaml
+    </group>
 
     <group if="$(arg sim)">
         <include file="$(find stdr_robot)/launch/robot_manager.launch" />
