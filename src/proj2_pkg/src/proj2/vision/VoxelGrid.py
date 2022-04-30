@@ -35,13 +35,14 @@ class VoxelGrid(object):
         """Initialize the grid."""
         self.voxel_size = voxel_size
         self.pixels_per_voxel = pixels_per_voxel
+        self.feature_size = feature_size
 
         self.g_w = int(round((GRID_X_MAX - GRID_X_MIN)/self.voxel_size))
         self.g_h = int(round((GRID_Y_MAX - GRID_Y_MIN)/self.voxel_size))
-        self.grid = np.zeros((self.g_h, self.g_w, feature_size))
+        self.grid = np.zeros((self.g_h, self.g_w, self.feature_size))
 
-    def compute_features(self, image):
-        """Compute features for an image."""
+    def compute_features(self, images):
+        """Compute features for images."""
         raise NotImplementedError()
 
     def update(self, image, cam_matrix, T_world_base, T_rgb_world):
@@ -88,18 +89,42 @@ class VoxelGrid(object):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2BGRA)
         warped = cv2.warpPerspective(image, matrix, (W, H), cv2.INTER_CUBIC)
 
-        for x in range(0, voxels_x):
-            for y in range(0, voxels_y):
-                # Compute features for voxels
-                gx = x + int(round((x_min - GRID_X_MIN)/self.voxel_size))
-                gy = y + int(round((y_min - GRID_Y_MIN)/self.voxel_size))
+        PPV = self.pixels_per_voxel
+        voxels = np.lib.stride_tricks.as_strided(warped,
+            shape=(voxels_y, voxels_x, PPV, PPV, 4),
+            strides=(W * PPV*4, PPV*4, W*4, 4, 1)
+        )
 
-                PPV = self.pixels_per_voxel
-                img = warped[y*PPV:(y+1)*PPV, x*PPV:(x+1)*PPV]
-                n = np.sum(img[:, :, 3])
+        voxels = voxels.reshape(-1, PPV, PPV, 4) # Concatenate all voxels
 
-                # Only handle valid regions in the reprojected image
-                if n > 0 and gx >= 0 and gy >= 0 and gx < self.g_w and gy < self.g_h:
-                    self.grid[gy, gx] = self.compute_features(img)
+        start_x = int(round((x_min - GRID_X_MIN)/self.voxel_size))
+        start_y = int(round((y_min - GRID_Y_MIN)/self.voxel_size))
+
+        positions = np.array([(y,x)
+                     for y in range(start_y, start_y + voxels_y)
+                     for x in range(start_x, start_x + voxels_x)
+                    ])
+
+        def is_valid_position(position):
+            (gy,gx) = position
+            return gx >= 0 and gy >= 0 and gx < self.g_w and gy < self.g_h
+
+        valid = np.apply_along_axis(is_valid_position, 1, positions)
+        positions = positions[valid]
+        voxels = voxels[valid]
+
+        # Compute features for voxels
+        features = self.compute_features(voxels)
+        
+        good = ~np.any(np.isnan(features), axis=1)
+        features = features[good]
+        positions = positions[good]
+
+        rows, cols = positions.T
+        self.grid[rows, cols] = features
+
+        # Only handle valid regions in the reprojected image
+        # if n > 0 and :
+        #     self.grid[gy, gx] = self.compute_features(img)
 
         return warped
