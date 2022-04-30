@@ -5,9 +5,9 @@ import numpy as np
 
 # A list of points corresponding to the corners of the floor in the robot image,
 # specified in the base link frame's coordinate system
-POINTS = np.array([[ 2.5,    1.562,  0.   ]
-                   [ 2.5,   -1.592,  0.   ]
-                   [ 0.54,  -0.395,  0.   ]
+POINTS = np.array([[ 2.5,    1.562,  0.   ],
+                   [ 2.5,   -1.592,  0.   ],
+                   [ 0.54,  -0.395,  0.   ],
                    [ 0.54,   0.369,  0.   ]])
 
 GRID_X_MIN = -5
@@ -24,7 +24,7 @@ def project_points_float(points, cam_matrix):
     return pixel_coords.astype(np.float32)
 
 
-class VoxelGrid:
+class VoxelGrid(object):
     """A VoxelGrid is a grid of voxels, where each voxel has a feature vector.
 
     Feature vectors are created by receiving images and transformations,
@@ -38,7 +38,7 @@ class VoxelGrid:
 
         self.g_w = int(round((GRID_X_MAX - GRID_X_MIN)/self.voxel_size))
         self.g_h = int(round((GRID_Y_MAX - GRID_Y_MIN)/self.voxel_size))
-        self.grid = np.zeros((self.g_h, self.g, feature_size))
+        self.grid = np.zeros((self.g_h, self.g_w, feature_size))
 
     def compute_features(self, image):
         """Compute features for an image."""
@@ -99,7 +99,7 @@ class VoxelGrid:
                 n = np.sum(img[:, :, 3])
 
                 # Only handle valid regions in the reprojected image
-                if n > 0 and gx >= 0 and gy >= 0 and gx < g_w and gy < g_h:
+                if n > 0 and gx >= 0 and gy >= 0 and gx < self.g_w and gy < self.g_h:
                     self.grid[gy, gx] = self.compute_features(img)
 
         return warped
