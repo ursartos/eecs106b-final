@@ -46,18 +46,18 @@ def average_hsvs(img):
     # Convert to hsv
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     # Averages for each of h, s, and v
-    averages = [np.mean(img[:, :, i]) for i in range(3)]
+    averages = [np.mean(img[:, :, i], axis=0) for i in range(3)]
     return averages
 
 
 def average_rgbs(img):
-    averages = [np.mean(img[:, :, i]) for i in range(3)]
+    averages = [np.mean(img[:, :, i], axis=0) for i in range(3)]
     return averages
 
 # Gets root mean square contrast, which is essentially standard deviation of intensities
 def rms_contrast(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return img_grey.std()
+    return np.std(img_grey, axis=0)
 
 
 print(extract_features(cv2.imread(
