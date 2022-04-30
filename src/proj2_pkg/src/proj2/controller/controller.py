@@ -106,7 +106,7 @@ class UnicycleModelController(object):
             # random tests #
             # target_acceleration=[0,0,0] 
             # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
-            print(target_velocity)
+            # print(target_velocity)
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
@@ -180,11 +180,11 @@ class UnicycleModelController(object):
                 and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
                 X_d.append(visual_features)
                 y_d.append(np.mean((d_val_x, d_val_y)))
-            if np.isnan(d_val_x) and not np.isnan(d_val_y) \
+            elif np.isnan(d_val_x) and not np.isnan(d_val_y) \
                 and abs(d_val_y) < MAX_CAP:
                 X_d.append(visual_features)
                 y_d.append(d_val_y)
-            if np.isnan(d_val_y) and not np.isnan(d_val_x) \
+            elif np.isnan(d_val_y) and not np.isnan(d_val_x) \
                 and abs(d_val_x) < MAX_CAP:
                 X_d.append(visual_features)
                 y_d.append(d_val_x)
