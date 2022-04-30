@@ -2,6 +2,8 @@
 
 import cv2
 import numpy as np
+import rospy
+import tf
 
 # A list of points corresponding to the corners of the floor in the robot image,
 # specified in the base link frame's coordinate system
@@ -23,6 +25,12 @@ def project_points_float(points, cam_matrix):
     pixel_coords = homo_pixel_coords[0:2, :] / homo_pixel_coords[2, :]
     return pixel_coords.astype(np.float32)
 
+# Convert between probabity and log-odds.
+def ProbabilityToLogOdds(p):
+    return np.log(p / (1.0 - p))
+
+def LogOddsToProbability(l):
+    return 1.0 / (1.0 + np.exp(-l))
 
 class VoxelGrid(object):
     """A VoxelGrid is a grid of voxels, where each voxel has a feature vector.
@@ -40,6 +48,13 @@ class VoxelGrid(object):
         self.g_w = int(round((GRID_X_MAX - GRID_X_MIN)/self.voxel_size))
         self.g_h = int(round((GRID_Y_MAX - GRID_Y_MIN)/self.voxel_size))
         self.grid = np.zeros((self.g_h, self.g_w, self.feature_size))
+
+        self.occupied_update = ProbabilityToLogOdds(0.7)
+        self.occupied_threshold = ProbabilityToLogOdds(0.97)
+        self.free_update = ProbabilityToLogOdds(0.3)
+        self.free_threshold = ProbabilityToLogOdds(0.03)
+
+        self.random_downsample = 0.1
 
     def compute_features(self, images):
         """Compute features for images."""
@@ -121,3 +136,60 @@ class VoxelGrid(object):
         #     self.grid[gy, gx] = self.compute_features(img)
 
         return warped
+
+    def update_from_laserscan(self, msg, pose):
+        """Update grid from laserscan data."""
+        sensor_x = pose.transform.translation.x
+        sensor_y = pose.transform.translation.y
+        if abs(pose.transform.translation.z) > 0.05:
+            rospy.logwarn("Turtlebot is not on ground plane.")
+
+        (roll, pitch, yaw) = tf.transformations.euler_from_quaternion(
+            [pose.transform.rotation.x, pose.transform.rotation.y,
+             pose.transform.rotation.z, pose.transform.rotation.w])
+        if abs(roll) > 0.1 or abs(pitch) > 0.1:
+            rospy.logwarn("Turtlebot roll/pitch is too large.")
+
+        # Loop over all ranges in the LaserScan.
+        for idx, r in enumerate(msg.ranges):
+            # Randomly throw out some rays to speed this up.
+            if np.random.rand() > self.random_downsample or np.isnan(r):
+                continue
+
+            # Get angle of this ray in fixed frame.
+            angle = msg.angle_min + idx * msg.angle_increment
+
+            # Throw out this point if it is too close or too far away.
+            if r > msg.range_max:
+                rospy.logwarn("Range %f > %f was too large.", r, msg.range_max)
+                continue
+            if r < msg.range_min:
+                rospy.logwarn("Range %f < %f was too small.", r, msg.range_min)
+                continue
+
+            # Walk along this ray from the scan point to the sensor.
+            # Update log-odds at each voxel along the way.
+            # Only update each voxel once.
+            scan_x = sensor_x + r * np.cos(yaw + angle)
+            scan_y = sensor_y + r * np.sin(yaw + angle)
+            voxel_x = int((scan_x - GRID_X_MIN) / self.voxel_size)
+            voxel_y = int((scan_y - GRID_Y_MIN) / self.voxel_size)
+            if voxel_x >= 0 and voxel_y >= 0 and voxel_x < self.g_w and voxel_y < self.g_h:
+                self.grid[voxel_y, voxel_x] += self.occupied_update
+                if self.grid[voxel_y, voxel_x] > self.occupied_threshold:
+                    self.grid[voxel_y, voxel_x] = self.occupied_threshold
+
+            step = 2 * np.sqrt(self.voxel_size)
+            for i in np.arange(1, r, step):
+                scan_x = sensor_x + (r-i) * np.cos(yaw + angle)
+                scan_y = sensor_y + (r-i) * np.sin(yaw + angle)
+                voxel_x = int((scan_x - GRID_X_MIN) / self.voxel_size)
+                voxel_y = int((scan_y - GRID_Y_MIN) / self.voxel_size)
+                if voxel_x >= 0 and voxel_y >= 0 and voxel_x < self.g_w and voxel_y < self.g_h:
+                    self.grid[voxel_y, voxel_x] += self.free_update
+                    if self.grid[voxel_y, voxel_x] < self.free_threshold:
+                        self.grid[voxel_y, voxel_x] = self.free_threshold
+
+    def grid_to_probability(self):
+        """Convert grid from log-odds to probabilities."""
+        return LogOddsToProbability(self.grid)
