@@ -41,6 +41,23 @@ def dijkstra(edges, f, t):
 
     return float("inf"), None
 
+def get_d_for_coords(terrains_grid, point1, point2):
+    r = point2[0] - point1[0]
+    c = point2[1] - point1[1]
+    worst_case_d = float('inf')
+    bottom_left = np.min((point1, point2), axis=1)
+    if abs(r) == 1 and c == 0:
+        if bottom_left[1] > 0:
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0]][bottom_left[1] - 1])
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+    elif abs(c) == 1 and r == 0:
+        if bottom_left[0] > 0:
+            worst_case_d = min(worst_case_d, terrains_grid[bottom_left[0] - 1][bottom_left[1]])
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+    elif abs(r) == 1 and abs(c) == 1:
+        worst_case_d = min(worst_case_d, terrains_grid[bottom_left])
+    return worst_case_d
+
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     graph = Graph()
     edges = []
@@ -63,10 +80,10 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     if j + c < 0 or j + c >= len(terrains_grid[0]):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
-                    min_r, min_c = min(i, i + r), min(j, j + c)
-                    graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / float(terrains_grid
-                    [min_c, min_r, 0]))
-                    edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / float(terrains_grid[min_c, min_r, 0])))
+                    worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c])
+
+                    graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
+                    edges.append(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
 
     use_custom_dijkstra = False
 
@@ -126,7 +143,7 @@ def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length,
     waypoints.append([path[0,0], path[0,1], q_start[2]])
 
     for j in range(0, path.shape[0] - 1):
-        current_d = terrain_map[tuple(indices[j])][0]
+        current_d = get_d_for_coords(terrain_map, path[j], path[j+1])
         # make sure the last cell is the goal position #
         theta = np.arctan2(path[j+1,1] - path[j,1], path[j+1,0] - path[j,0])
         dist = np.linalg.norm(path[j+1] - path[j])
