@@ -15,9 +15,8 @@ class ImageGrid(VoxelGrid):
         VoxelGrid.__init__(self, voxel_size=0.01, pixels_per_voxel=1, feature_size=3)
 
     def compute_features(self, images):
-        averages = images.astype(float).sum(axis=(1, 2))
-        result = averages[:, :3] / averages[:, 3:4]
-        return result
+        images = images.astype(float)
+        return images[:, :3] / images[:, 3:4]
 
 
 imageGrid = ImageGrid()
