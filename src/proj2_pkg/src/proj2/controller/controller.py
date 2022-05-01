@@ -115,6 +115,9 @@ class UnicycleModelController(object):
             rate.sleep()
 
         self.estimate_parameters_kernel(self.buffer)
+        # print(self.d_estimator.regressor.X)
+        # print(self.d_estimator.uncertainty_regressor.X)
+        # 1/0
 
     def estimate_parameters_leastsq(self, buffer):
         if len(buffer) < 4:
