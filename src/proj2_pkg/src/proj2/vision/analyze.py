@@ -7,8 +7,8 @@ class FeatureGrid(VoxelGrid):
     def __init__(self):
         super().__init__(voxel_size=0.2, pixels_per_voxel=50, feature_size=7)
 
-    def compute_features(self, image):
-        return extract_features(image)
+    def compute_features(self, voxels):
+        return extract_features(voxels)
 
 class ObstacleGrid(VoxelGrid):
     def __init__(self):

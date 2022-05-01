@@ -56,7 +56,7 @@ class VoxelGrid(object):
 
         self.random_downsample = 0.1
 
-    def compute_features(self, images):
+    def compute_features(self, voxels):
         """Compute features for images."""
         raise NotImplementedError()
 
