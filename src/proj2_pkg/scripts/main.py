@@ -58,12 +58,13 @@ def get_terrain_kd(terrain_map, controller):
 
 def compute_estimator_error(estimate, truth_lst):
     truth = np.ones(estimate.shape)
-    # print(len(truth_lst))
+    print(truth_lst)
+    print(estimate)
     for terr in truth_lst:
         x_low, x_high, y_low, y_high = terr[0]
         for x in range(x_low, x_high):
             for y in range(y_low, y_high):
-                truth[x,y] = terr[1]
+                truth[x,y] = terr[1][0]
 
     average_error = 0
     errors = []
