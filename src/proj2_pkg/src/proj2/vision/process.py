@@ -6,14 +6,14 @@ import message_filters
 import ros_numpy
 import tf
 
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, LaserScan
 import sensor_msgs.point_cloud2 as pc2
 from geometry_msgs.msg import PoseStamped, TransformStamped
 
 import numpy as np
 import cv2
 
-from .analyze import dostuff
+from .analyze import dostuff, dosensorstuff
 
 def get_camera_matrix(camera_info_msg):
     return np.array(camera_info_msg.K).reshape((3,3))
@@ -30,10 +30,8 @@ class PointcloudProcess:
     def __init__(self, points_sub_topic,
                        image_sub_topic,
                        cam_info_topic,
-                       rgb_frame,
-                       depth_frame):
-
-        self.num_steps = 0
+                       sensor_sub_topic,
+                       rgb_frame):
 
         self.messages = deque([], 5)
         self.pointcloud_frame = None
@@ -46,6 +44,7 @@ class PointcloudProcess:
         self.listener = tf.TransformListener()
 
         image_sub = rospy.Subscriber(image_sub_topic, Image, self.image_callback)
+        scan_sub = rospy.Subscriber(sensor_sub_topic, LaserScan, self.sensor_callback)
 
     def image_callback(self, image):
         try:
@@ -53,23 +52,43 @@ class PointcloudProcess:
         except Exception as e:
             rospy.logerr(e)
             return
-        self.num_steps += 1
         time = image.header.stamp
         self.messages.appendleft((time, rgb_image))
 
+    def sensor_callback(self, scan):
+        self.messages.appendLeft(time)
+
     def publish_once_from_queue(self):
         if self.messages:
-            time, image = self.messages.pop()
-            try:
-                trans, rot = self.listener.lookupTransform('odom', 'base_link', time)
-                rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
-                T_world_base = (rot, trans)
+            msg = self.messages.pop()
+            if type(msg) == tuple:
+                self.publish_image(msg)
+            else:
+                self.publish_sensor(msg)
 
-                trans, rot = self.listener.lookupTransform(self.rgb_frame, 'odom', time)
-                rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
-                T_rgb_world = (rot, trans)
-            except (tf.LookupException,
-                    tf.ConnectivityException,
-                    tf.ExtrapolationException):
-                return
-            dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
+    def publish_image(self, msg):
+        time, image = msg
+        try:
+            trans, rot = self.listener.lookupTransform('odom', 'base_link', time)
+            rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
+            T_world_base = (rot, trans)
+
+            trans, rot = self.listener.lookupTransform(self.rgb_frame, 'odom', time)
+            rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
+            T_rgb_world = (rot, trans)
+        except (tf.LookupException,
+                tf.ConnectivityException,
+                tf.ExtrapolationException):
+            return
+        dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
+
+    def publish_sensor(self, msg):
+        try:
+            time = msg.header.stamp
+            pose = self.listener.lookupTransform('odom', 'base_link', time)
+        except (tf.LookupException,
+                tf.ConnectivityException,
+                tf.ExtrapolationException):
+            return
+
+        dosensorstuff(msg, pose)
