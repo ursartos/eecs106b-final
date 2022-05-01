@@ -30,7 +30,7 @@ class UnicycleModelController(object):
         self.k_estimator = ParameterEstimatorKernel()
         self.d = 1
         self.k = 1
-        self.debug_input = 2.0
+        self.debug_input = -0.8
         rospy.on_shutdown(self.shutdown)
 
     # def current_pos_to_terrain(self, pos, terrains):
@@ -43,18 +43,22 @@ class UnicycleModelController(object):
     #     terrain_vec[0] = 1
     #     return terrain_vec, 1, 1
 
-    def mock_velocity(self, pos, commanded, terrains):
+    def mock_velocity(self, pos, commanded, terrain_vector, terrains):
         d = 1
         k = 1
-        # print(terrains)
-        for i, terrain in enumerate(terrains):
-            terrain_corners = terrain[0]
-            if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
-                d, k = terrain[1], terrain[2]
-                # print([commanded[0] * d, commanded[1] * k])
+
+        terrain_idx = np.argmax(terrain_vector)
+        if terrain_idx == 0:
+            return commanded
+
+        terrain = terrains[terrain_idx - 1]
+        d, k = terrain[1][0], terrain[2][0]
+        dd, dk = np.random.normal(0, terrain[1][1]), np.random.normal(0, terrain[2][1])
+        d += dd
+        k += dk
+
         mocked = [commanded[0] * d, commanded[1] * k]
-        # print("Commanded, Mocked", commanded, mocked)
-        return [commanded[0] * d, commanded[1] * k]
+        return mocked
 
     def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
         """
@@ -111,20 +115,21 @@ class UnicycleModelController(object):
             # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
-
                 sys_id_count += 1
 
                 if sys_id_count % sys_id_period == 0:
+                    print(cur_velocity[0], np.mean(inputs_agg, axis=0)[0])
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                     # print("visual feature", current_terrain_vector)
                     # self.estimate_parameters_kernel(self.buffer)
+                    inputs_agg = []
 
                 prev_state_change_time = t
 
             cur_state = self.state
             commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration,
                                                 cur_state, cur_velocity, cmd, dt, terrains=terrains,
-                                                est_d=est_d, est_k=est_k)
+                                                est_d=est_d, est_k=est_k, terrain_vector=current_terrain_vector)
             inputs_agg.append(commanded_input)
             rate.sleep()
 
@@ -236,7 +241,7 @@ class UnicycleModelController(object):
 
     def step_control(self, cmd, target_position, target_velocity, target_acceleration,
                      cur_position, cur_velocity, open_loop_input, dt, terrains=[],
-                     est_d=1, est_k=1):
+                     est_d=1, est_k=1, terrain_vector=[]):
         """Specify a control law. For the grad/EC portion, you may want
         to edit this part to write your own closed loop controller.
         Note that this class constantly subscribes to the state of the robot,
@@ -267,7 +272,7 @@ class UnicycleModelController(object):
 
         # print(target_position[:2], target_position[:2] - cur_position[:2])
         # print(target_velocity[:2], cur_velocity[:2])
-        taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
+        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
         self.vel_cmd = max(min(self.vel_cmd, 2), -2)
@@ -275,10 +280,10 @@ class UnicycleModelController(object):
 
         # todo: remove
         # control_input[0] = self.debug_input if cur_position[0] > 0.9 else 0
-        # control_input[1] = 0.0
-        print(control_input)
+        # control_input[1] = 3.0
+        # print(control_input, np.linalg.norm(cur_velocity))
 
-        self.cmd(self.mock_velocity(cur_position, control_input, terrains))
+        self.cmd(self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
         return control_input
 
     def cmd(self, msg):
