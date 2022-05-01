@@ -88,7 +88,7 @@ def make_terrain_map1():
 	pass
 
 def make_two_terrains():
-	create_map([], 20, 6, "two_terrains", terrains=[[[2, 8, 0, 3], [0.5, 0.3], [0.5, 0.3]], [[2, 8, 3, 6], [0.5, 0.1], [0.5, 0.1]]])
+	create_map([], 15, 15, "two_terrains", terrains=[[[2, 8, 0, 15], [0.5, 0.3], [0.5, 0.3]], [[2, 8, 0, 15], [0.5, 0.1], [0.5, 0.1]]])
 
 def make_terrain_map2():
 	x_len, y_len = 10, 10
@@ -110,5 +110,5 @@ if __name__ == '__main__':
 	# make_map2()
 	# make_empty_map()
 	# make_terrain_map()
-	# make_two_terrains()
-	make_terrain_map2()
+	make_two_terrains()
+	# make_terrain_map2()
