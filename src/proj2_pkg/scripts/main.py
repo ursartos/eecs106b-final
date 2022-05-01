@@ -15,6 +15,7 @@ import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, OptimizationPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
 from proj2.controller import UnicycleModelController
+from proj2.vision.process import PointcloudProcess
 
 def parse_args():
     """
@@ -26,6 +27,7 @@ def parse_args():
     parser.add_argument('-x', type=float, default=1.0, help='Desired position in x')
     parser.add_argument('-y', type=float, default=1.0, help='Desired position in y')
     parser.add_argument('-theta', type=float, default=0.0, help='Desired turtlebot angle')
+    parser.add_argument('-sim', type=bool, default=False, help='Use simulation')
     return parser.parse_args()
 
 def get_terrain_map(terrains, xy_low, xy_high, res=1):
@@ -108,6 +110,20 @@ if __name__ == '__main__':
     raw_terrain_map, terrain_aleatoric_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
 
     args.planner = 'opt'
+
+    RGB_FRAME = '/camera_rgb_optical_frame'
+    CAM_INFO_TOPIC = '/camera/rgb/camera_info'
+    RGB_IMAGE_TOPIC = '/camera/rgb/image_color'
+    SENSOR_TOPIC = '/scan'
+
+    # feature_grid = None
+    def callback(grid):
+        global terrain_visual_features
+        if not args.sim:
+            terrain_visual_features = grid
+
+    process = PointcloudProcess(RGB_IMAGE_TOPIC, CAM_INFO_TOPIC,
+                                SENSOR_TOPIC, RGB_FRAME, callback)
 
     if args.planner == 'sin':
         raise ValueError("don't use sin, just don't")

@@ -28,7 +28,7 @@ featureGrid = FeatureGrid()
 obstacleGrid = ObstacleGrid()
 
 
-def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
+def dostuff(image, cam_matrix, T_world_base, T_rgb_world, callback):
     """Process camera data.
 
     image: RGB image from camera
@@ -49,6 +49,8 @@ def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
 
     cv2.imshow('grid', imageGrid.grid * (1 - grid))
     cv2.waitKey(1)
+
+    callback(featureGrid.grid)
 
 
 def dosensorstuff(msg, pose):

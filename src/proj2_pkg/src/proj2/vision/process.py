@@ -28,11 +28,11 @@ class PointcloudProcess:
     Wraps the processing of a pointcloud from an input ros topic and publishing
     to another PointCloud2 topic.
     """
-    def __init__(self, points_sub_topic,
-                       image_sub_topic,
+    def __init__(self, image_sub_topic,
                        cam_info_topic,
                        sensor_sub_topic,
-                       rgb_frame):
+                       rgb_frame,
+                       callback):
 
         self.messages = deque([], 5)
         self.pointcloud_frame = None
@@ -41,6 +41,7 @@ class PointcloudProcess:
 
         self.rgb_frame = rgb_frame
         # self.depth_frame = depth_frame
+        self.callback = callback
 
         self.listener = tf.TransformListener()
         self.tf_buffer = tf2_ros.Buffer()
@@ -56,18 +57,20 @@ class PointcloudProcess:
             rospy.logerr(e)
             return
         time = image.header.stamp
-        self.messages.appendleft((time, rgb_image))
+        # self.messages.appendleft((time, rgb_image))
+        self.publish_image((time, rgb_image))
 
     def sensor_callback(self, scan):
-        self.messages.appendleft(scan)
+        # self.messages.appendleft(scan)
+        self.publish_sensor(scan)
 
-    def publish_once_from_queue(self):
-        if self.messages:
-            msg = self.messages.pop()
-            if type(msg) == tuple:
-                self.publish_image(msg)
-            else:
-                self.publish_sensor(msg)
+    # def publish_once_from_queue(self):
+    #     if self.messages:
+    #         msg = self.messages.pop()
+    #         if type(msg) == tuple:
+    #             self.publish_image(msg)
+    #         else:
+    #             self.publish_sensor(msg)
 
     def publish_image(self, msg):
         time, image = msg
@@ -83,7 +86,7 @@ class PointcloudProcess:
                 tf.ConnectivityException,
                 tf.ExtrapolationException):
             return
-        dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
+        dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world, self.callback)
 
     def publish_sensor(self, msg):
         try:
