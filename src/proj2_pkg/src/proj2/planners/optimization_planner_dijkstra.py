@@ -41,7 +41,7 @@ def dijkstra(edges, f, t):
 
     return float("inf"), None
 
-def get_d_for_coords(terrains_grid, point1, point2):
+def get_d_for_coords(terrains_grid, point1, point2, debug=True):
     r = point2[0] - point1[0]
     c = point2[1] - point1[1]
     worst_case_d = float('inf')
@@ -57,7 +57,8 @@ def get_d_for_coords(terrains_grid, point1, point2):
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(r) == 1 and abs(c) == 1:
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
-    # print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
+    if debug:
+        print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
@@ -65,7 +66,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
-    # print("Start", start_node, "Goal", goal_node)
+    print("Start", position_to_grid(terrains_grid, start, side_length), "Goal", position_to_grid(terrains_grid, goal, side_length))
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
@@ -80,7 +81,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     if j + c < 0 or j + c >= len(terrains_grid[0]):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
-                    worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c])
+                    worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c], debug=False)
 
                     graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
                     edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d))

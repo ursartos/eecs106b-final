@@ -74,7 +74,7 @@ class UnicycleModelController(object):
         terrains = mock_terrains
         if len(plan) == 0:
             return
-        print("plan dt", plan.dt)
+
         rate = rospy.Rate(int(1 / plan.dt))
         start_t = rospy.Time.now()
         cur_state = self.state

@@ -31,11 +31,10 @@ def parse_args():
 def get_terrain_map(terrains, xy_low, xy_high, res=1):
     # this function is mocking the distribution of terrains features on the ground spatially
     terrains = np.array(terrains)
-    side_length = xy_high[0] - xy_low[0] + 1
+    side_length = xy_high[0] - xy_low[0]
     terrain_map = np.zeros((res*side_length, res*side_length, len(terrains) + 1))
     terrain_map[:, :, 0] = 1
     for i, terrain in enumerate(terrains):
-        # print(terrain[0])
         xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
         encoding = np.zeros((len(terrains) + 1,))
         encoding[i+1] = 1
@@ -60,8 +59,6 @@ def get_terrain_kd(terrain_map, controller):
 
 def compute_estimator_error(estimate, truth_lst):
     truth = np.ones(estimate.shape)
-    print(truth_lst)
-    print(estimate)
     for terr in truth_lst:
         x_low, x_high, y_low, y_high = terr[0]
         for x in range(x_low, x_high):
@@ -153,18 +150,21 @@ if __name__ == '__main__':
         goals = [start, goal]
         counter = 1
         while True:
-            plt.imshow(raw_terrain_map[:, :, 0])
+            plt.imshow(raw_terrain_map.transpose(1, 0, 2)[:, ::-1, 0])
             plt.title("Raw Terrain D Map")
             plt.colorbar()
             plt.show()
-            plt.imshow(terrain_aleatoric_map[:, :, 0])
+            plt.imshow(terrain_aleatoric_map.transpose(1, 0, 2)[:, ::-1, 0])
             plt.title("Terrain D Aleatoric Uncertainty Map")
             plt.colorbar()
             plt.show()
-            plt.imshow(terrain_epistemic_map[:, :, 0])
+            plt.imshow(terrain_epistemic_map.transpose(1, 0, 2)[:, ::-1, 0])
             plt.title("Terrain D Epistemic Uncertanity Map")
             plt.colorbar()
             plt.show()
+
+            start = controller.state
+
             ## Edit the dt and N arguments to your needs.
             config = UnicycleConfigurationSpace(xy_low,
                                         xy_high,
@@ -175,7 +175,6 @@ if __name__ == '__main__':
                                         terrains=terrain_map)
             planner = OptimizationPlanner(config)
 
-            start = controller.state
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
             
             print("Predicted Initial State")
