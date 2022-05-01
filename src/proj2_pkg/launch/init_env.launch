@@ -55,6 +55,7 @@
             <!-- [[2, 5, 1], [5, 5, 1], [8, 5, 1], [8, 2, 1], [2, 8, 1]] -->
             environment/low_lims: [0, 0]
             environment/high_lims: [20, 6]
+        </rosparam>
     </group>
 
     <group if="$(eval map == 'terrains_random.yaml')">
