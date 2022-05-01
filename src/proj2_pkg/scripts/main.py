@@ -35,6 +35,7 @@ def get_terrain_map(terrains, xy_low, xy_high, res=1):
     terrain_map = np.zeros((res*side_length, res*side_length, len(terrains) + 1))
     terrain_map[:, :, 0] = 1
     for i, terrain in enumerate(terrains):
+        # print(terrain[0])
         xmin, xmax, ymin, ymax = [res*x for x in terrain[0]]
         encoding = np.zeros((len(terrains) + 1,))
         encoding[i+1] = 1
@@ -52,6 +53,31 @@ def get_terrain_kd(terrain_map, controller):
     return kd_map
 
 # def get_terrain_image(filename='/path/to/file'):
+
+def compute_estimator_error(estimate, truth_lst):
+    truth = np.ones(estimate.shape)
+    # print(len(truth_lst))
+    for terr in truth_lst:
+        x_low, x_high, y_low, y_high = terr[0]
+        for x in range(x_low, x_high):
+            for y in range(y_low, y_high):
+                truth[x,y] = terr[1]
+
+    average_error = 0
+    errors = []
+    for i in range(estimate.shape[0]):
+        for j in range(estimate.shape[1]):
+            if (estimate[i,j] == 1.0):
+                continue
+
+            error = abs(estimate[i,j] - truth[i,j])
+            errors.append(error)
+            if (average_error == 0):
+                average_error = error
+            else:
+                average_error = (average_error + error)/2
+
+    return average_error, errors
     
 
 if __name__ == '__main__':
@@ -165,3 +191,4 @@ if __name__ == '__main__':
 
             terrain_map = get_terrain_kd(terrain_visual_features, controller)
             config.terrains = terrain_map
+            print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))

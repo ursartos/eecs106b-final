@@ -84,11 +84,26 @@ def make_map2():
 def make_empty_map():
 	create_map([], 5, 5, "empty")
 
-def make_terrain_map():
+def make_terrain_map1():
 	create_map([], 10, 4, "terrain_noavoid", terrains=[[[3, 6], [0, 4], 0.1, 1]], resolution=0.01)
+
+def make_terrain_map2():
+	x_len, y_len = 10, 10
+	terrains = []
+	terrains_launch = []
+	res=1
+	for i in range(res*x_len):
+		for j in range(res*y_len):
+			d = np.random.random()*2
+			terrains.append([[i, i+1],[j,j+1], d,1])
+			terrains_launch.append([[i, i+1,j,j+1], d,1])
+	create_map([], x_len, y_len, "terrains_random", terrains=terrains, resolution=0.01)
+	file = open("terrain_randmap.txt", "w")
+	file.write(str(terrains_launch))
+	file.close()
 
 if __name__ == '__main__':
 	# make_map1()
 	# make_map2()
 	# make_empty_map()
-	make_terrain_map()
+	make_terrain_map2()
