@@ -8,6 +8,12 @@ def extract_features(voxels):
     # cv2.imshow('edge', edge)
     # cv2.waitKey(0)
     # cv2.destroyAllWindows()
+    print(img.shape)
+    img_reshaped = img.reshape((img.shape[0] * img.shape[1], 4))
+    filter = img_reshaped[:, 3] > 0
+    filtered_img = img_reshaped[filter, :3]
+    filtered_img = np.expand_dims(filtered_img, axis=1)
+    print(filtered_img.shape)
 
     # Reshape to get 1D array of filters
     voxels_reshaped = voxels.reshape((-1, voxels.shape[1] * voxels.shape[2], 4))

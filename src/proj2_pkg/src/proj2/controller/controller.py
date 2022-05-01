@@ -30,33 +30,30 @@ class UnicycleModelController(object):
         self.k_estimator = ParameterEstimatorKernel()
         self.d = 1
         self.k = 1
-        self.debug_input = 2.0
         rospy.on_shutdown(self.shutdown)
 
-    # def current_pos_to_terrain(self, pos, terrains):
-    #     terrain_vec = np.zeros(TERRAIN_DIM + 1)
-    #     for i, terrain in enumerate(terrains):
-    #         terrain_corners = terrain[0]
-    #         if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
-    #             terrain_vec[i + 1] = 1
-    #             return terrain_vec, terrain[1], terrain[2]
-    #     terrain_vec[0] = 1
-    #     return terrain_vec, 1, 1
+    def current_pos_to_terrain(self, pos, terrains):
+        terrain_vec = np.zeros(TERRAIN_DIM + 1)
+        for i, terrain in enumerate(terrains):
+            terrain_corners = terrain[0]
+            if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
+                terrain_vec[i + 1] = 1
+                return terrain_vec, terrain[1], terrain[2]
+        terrain_vec[0] = 1
+        return terrain_vec, 1, 1
 
     def mock_velocity(self, pos, commanded, terrains):
         d = 1
         k = 1
-        # print(terrains)
         for i, terrain in enumerate(terrains):
             terrain_corners = terrain[0]
             if terrain_corners[0] <= pos[0] <= terrain_corners[1] and terrain_corners[2] <= pos[1] <= terrain_corners[3]:
                 d, k = terrain[1], terrain[2]
                 # print([commanded[0] * d, commanded[1] * k])
-        mocked = [commanded[0] * d, commanded[1] * k]
-        # print("Commanded, Mocked", commanded, mocked)
+
         return [commanded[0] * d, commanded[1] * k]
 
-    def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
+    def execute_plan(self, plan, terrains=[]):
         """
         Executes a plan made by the planner
 
@@ -64,7 +61,6 @@ class UnicycleModelController(object):
         ----------
         plan : :obj: Plan. See configuration_space.Plan
         """
-        terrains = mock_terrains
         if len(plan) == 0:
             return
         print("plan dt", plan.dt)
@@ -98,18 +94,9 @@ class UnicycleModelController(object):
             else:
                 break
 
-            # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
-            rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
-            current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
-            est_d, est_k = terrain_map[tuple(rounded_coordinates)]
-
+            current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
-
-            # random tests #
-            # target_acceleration=[0,0,0] 
-            # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
-            # print(target_velocity)
 
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
@@ -123,14 +110,10 @@ class UnicycleModelController(object):
                 prev_state_change_time = t
 
             cur_state = self.state
-            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration,
-                                                cur_state, cur_velocity, cmd, dt, terrains=terrains,
-                                                est_d=est_d, est_k=est_k)
+            commanded_input = self.step_control(cmd, state, target_velocity, target_acceleration, cur_state, cur_velocity, cmd, dt, terrains=terrains)
             inputs_agg.append(commanded_input)
             rate.sleep()
 
-        self.cmd([0, 0])
-        self.debug_input *= -1.0
         self.estimate_parameters_kernel(self.buffer)
 
     def estimate_parameters_leastsq(self, buffer):
@@ -174,70 +157,38 @@ class UnicycleModelController(object):
             theta = (buffer_state[0] + buffer_state[1])[2] / 2.0
             v, w = buffer_state[3]
             visual_features = buffer_state[4]
+            
+            d_val_x = xdot/(v*np.cos(theta))
+            d_val_y = ydot/(v*np.sin(theta))
+            k_val = theta_dot/w
 
             MAX_CAP = 2
-            
-            measured_v_vec = np.squeeze(np.array([xdot, ydot]))
-            measured_v = np.sqrt(xdot**2 + ydot**2)
-            expected_velocity_vec = np.squeeze(np.array([v*np.cos(theta), v*np.sin(theta)]))
-            d = np.dot(measured_v_vec, expected_velocity_vec)/np.dot(expected_velocity_vec, expected_velocity_vec)
-            # d = measured_v/abs(v)
-            k = theta_dot/w
-
-            if (abs(d) < MAX_CAP and abs(v) > 0.1):
+            if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
+                and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
                 X_d.append(visual_features)
-                y_d.append(d)
-                print("measured vec", measured_v_vec, "expected vec",
-                      expected_velocity_vec, 'theta', theta, 'v', v)
-                print("d", d)
-            if (abs(k) < MAX_CAP and abs(w) > 0.1):
+                y_d.append(np.mean((d_val_x, d_val_y)))
+            if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
                 X_k.append(visual_features)
-                y_k.append(k)
-
-            # component-wise #
-            # d_val_x = xdot/(v*np.cos(theta))
-            # d_val_y = ydot/(v*np.sin(theta))
-            # k_val = theta_dot/w
-
-            # MAX_CAP = 2
-            # if not np.isnan(d_val_x) and not np.isnan(d_val_y) \
-            #     and abs(d_val_x) < MAX_CAP and abs(d_val_y) < MAX_CAP:
-            #     X_d.append(visual_features)
-            #     y_d.append(np.mean((d_val_x, d_val_y)))
-            # if np.isnan(d_val_x) and not np.isnan(d_val_y) \
-            #     and abs(d_val_y) < MAX_CAP:
-            #     X_d.append(visual_features)
-            #     y_d.append(d_val_y)
-            # if np.isnan(d_val_y) and not np.isnan(d_val_x) \
-            #     and abs(d_val_x) < MAX_CAP:
-            #     X_d.append(visual_features)
-            #     y_d.append(d_val_x)
-            # if not np.isnan(k_val) and abs(k_val) < MAX_CAP:
-            #     X_k.append(visual_features)
-            #     y_k.append(k_val)
+                y_k.append(k_val)
 
         X_d = np.array(X_d)
         X_k = np.array(X_k)
         y_d = np.array(y_d)
         y_k = np.array(y_k)
 
-        # print("d", y_d)
-        # print("X_d", X_d)
+        print("d", y_d)
+        print("X_d", X_d)
 
         if X_d.shape[0] > 0:
-            # print("D shapes", X_d.shape, y_d.shape)
-            D_horz_concat = np.hstack((X_d, y_d.reshape((-1, 1))))
-            # print(D_horz_concat)
+            print("D shapes", X_d.shape, y_d.shape)
             self.d_estimator.reestimate(X_d, y_d)
         if X_k.shape[0] > 0:
-            # print("K shapes", X_k.shape, y_k.shape)
+            print("K shapes", X_k.shape, y_k.shape)
             self.k_estimator.reestimate(X_k, y_k)
 
         self.buffer = []
 
-    def step_control(self, cmd, target_position, target_velocity, target_acceleration,
-                     cur_position, cur_velocity, open_loop_input, dt, terrains=[],
-                     est_d=1, est_k=1):
+    def step_control(self, cmd, target_position, target_velocity, target_acceleration, cur_position, cur_velocity, open_loop_input, dt, terrains=[]):
         """Specify a control law. For the grad/EC portion, you may want
         to edit this part to write your own closed loop controller.
         Note that this class constantly subscribes to the state of the robot,
@@ -257,8 +208,6 @@ class UnicycleModelController(object):
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
 
-        self.k = est_k
-        self.d = est_d
         if abs(v) > 0.01:
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                             [-np.sin(theta)/(v*self.k), np.cos(theta)/(v*self.k)]])
@@ -271,13 +220,8 @@ class UnicycleModelController(object):
         taus = target_acceleration[:2] + 1.0 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
-        self.vel_cmd = max(min(self.vel_cmd, 2), -2)
-        control_input[0] = self.vel_cmd
-
-        # todo: remove
-        # control_input[0] = self.debug_input if cur_position[0] > 0.9 else 0
-        # control_input[1] = 0.0
-        print(control_input)
+        actual_vel_cmd = max(min(self.vel_cmd, 2), -2)
+        control_input[0] = actual_vel_cmd
 
         self.cmd(self.mock_velocity(cur_position, control_input, terrains))
         return control_input
