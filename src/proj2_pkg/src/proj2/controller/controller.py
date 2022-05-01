@@ -53,6 +53,7 @@ class UnicycleModelController(object):
 
         terrain = terrains[terrain_idx - 1]
         d, k = terrain[1][0], terrain[2][0]
+
         dd = np.random.normal(0, terrain[1][1]) if (terrain[1][1]) else 0
         dk = np.random.normal(0, terrain[2][1]) if (terrain[2][1]) else 0
 

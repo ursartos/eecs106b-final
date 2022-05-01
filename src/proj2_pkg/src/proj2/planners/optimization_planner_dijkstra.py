@@ -57,7 +57,7 @@ def get_d_for_coords(terrains_grid, point1, point2):
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(r) == 1 and abs(c) == 1:
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
-    print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
+    # print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
@@ -65,7 +65,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
-    print("Start", start_node, "Goal", goal_node)
+    # print("Start", start_node, "Goal", goal_node)
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
@@ -127,9 +127,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0] + 1
-    # print(q_start, q_goal, side_length)
     path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
-    # print(terrain_map)
     waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 

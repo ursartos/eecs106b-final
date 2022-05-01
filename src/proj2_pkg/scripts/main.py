@@ -45,6 +45,7 @@ def get_terrain_map(terrains, xy_low, xy_high, res=1):
 def get_terrain_kd(terrain_map, controller):
     kd_map = np.ones(terrain_map.shape[:2] + (2,))
     kd_aleatoric_map = np.zeros(terrain_map.shape[:2] + (2,))
+    kd_epistemic_map = np.zeros(terrain_map.shape[:2] + (2,))
     for i in range(terrain_map.shape[0]):
         for j in range(terrain_map.shape[1]):
             terrain_input = np.array([terrain_map[i, j]])
@@ -52,7 +53,8 @@ def get_terrain_kd(terrain_map, controller):
             k, k_uncertainty, k_aleatoric = controller.k_estimator.predict(terrain_input)
             kd_map[i, j] = [max(0.01, d), max(0.01, k)]
             kd_aleatoric_map[i, j] = [max(0., d_aleatoric), max(0., k_aleatoric)]
-    return kd_map, kd_aleatoric_map, np.max((np.zeros(kd_map.shape), kd_map - np.sqrt(kd_aleatoric_map)), axis=0)
+            kd_epistemic_map[i, j] = [max(0., d_uncertainty), max(0, k_uncertainty)]
+    return kd_map, kd_aleatoric_map, kd_epistemic_map, np.max((np.zeros(kd_map.shape), kd_map - np.sqrt(kd_aleatoric_map)), axis=0)
 
 # def get_terrain_image(filename='/path/to/file'):
 
@@ -132,7 +134,7 @@ if __name__ == '__main__':
     goal = np.array([args.x, args.y, args.theta])
 
     terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high, terrain_map_res)
-    raw_terrain_map, terrain_aleatoric_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
+    raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
 
     args.planner = 'opt'
 
@@ -152,9 +154,15 @@ if __name__ == '__main__':
         counter = 1
         while True:
             plt.imshow(raw_terrain_map[:, :, 0])
+            plt.title("Raw Terrain D Map")
             plt.colorbar()
             plt.show()
             plt.imshow(terrain_aleatoric_map[:, :, 0])
+            plt.title("Terrain D Aleatoric Uncertainty Map")
+            plt.colorbar()
+            plt.show()
+            plt.imshow(terrain_epistemic_map[:, :, 0])
+            plt.title("Terrain D Epistemic Uncertanity Map")
             plt.colorbar()
             plt.show()
             ## Edit the dt and N arguments to your needs.
@@ -186,6 +194,6 @@ if __name__ == '__main__':
             counter += 1
             goal = goals[counter % 2]
 
-            raw_terrain_map, terrain_aleatoric_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
+            raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
             config.terrains = terrain_map
             print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))
