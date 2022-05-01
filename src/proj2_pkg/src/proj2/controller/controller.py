@@ -118,9 +118,7 @@ class UnicycleModelController(object):
                 sys_id_count += 1
 
                 if sys_id_count % sys_id_period == 0:
-                    print(cur_velocity[0], np.mean(inputs_agg, axis=0)[0])
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
-                    # print("visual feature", current_terrain_vector)
                     # self.estimate_parameters_kernel(self.buffer)
                     inputs_agg = []
 
@@ -154,8 +152,6 @@ class UnicycleModelController(object):
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
         
-        # print("residual d", np.linalg.norm(self.d * self.d_est - self.d_goal, axis=-1).mean())
-
     def estimate_parameters_gp(self, buffer):
         for i in range(len(self.d_est), len(buffer)):
             buffer_state = buffer[i]
@@ -168,7 +164,6 @@ class UnicycleModelController(object):
             self.k_goal = np.append(self.k_goal, [theta_dot])
 
     def estimate_parameters_kernel(self, buffer):
-        print(buffer)
         X_d = []
         X_k = []
         y_d = []
@@ -191,9 +186,6 @@ class UnicycleModelController(object):
             if (abs(d) < MAX_CAP and abs(v) > 0.1):
                 X_d.append(visual_features)
                 y_d.append(d)
-                print("measured vec", measured_v_vec, "expected vec",
-                      expected_velocity_vec, 'theta', theta, 'v', v)
-                print("d", d)
             if (abs(k) < MAX_CAP and abs(w) > 0.1):
                 X_k.append(visual_features)
                 y_k.append(k)
@@ -225,16 +217,9 @@ class UnicycleModelController(object):
         y_d = np.array(y_d)
         y_k = np.array(y_k)
 
-        # print("d", y_d)
-        # print("X_d", X_d)
-
         if X_d.shape[0] > 0:
-            # print("D shapes", X_d.shape, y_d.shape)
-            D_horz_concat = np.hstack((X_d, y_d.reshape((-1, 1))))
-            # print(D_horz_concat)
             self.d_estimator.reestimate(X_d, y_d)
         if X_k.shape[0] > 0:
-            # print("K shapes", X_k.shape, y_k.shape)
             self.k_estimator.reestimate(X_k, y_k)
 
         self.buffer = []
@@ -270,8 +255,6 @@ class UnicycleModelController(object):
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                               [0, 0]])
 
-        # print(target_position[:2], target_position[:2] - cur_position[:2])
-        # print(target_velocity[:2], cur_velocity[:2])
         taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
