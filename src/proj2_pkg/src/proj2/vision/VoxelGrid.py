@@ -179,7 +179,7 @@ class VoxelGrid(object):
                 if self.grid[voxel_y, voxel_x] > self.occupied_threshold:
                     self.grid[voxel_y, voxel_x] = self.occupied_threshold
 
-            step = 2 * np.sqrt(self.voxel_size)
+            step = self.voxel_size #2 * np.sqrt(self.voxel_size)
             for i in np.arange(1, r, step):
                 scan_x = sensor_x + (r-i) * np.cos(yaw + angle)
                 scan_y = sensor_y + (r-i) * np.sin(yaw + angle)

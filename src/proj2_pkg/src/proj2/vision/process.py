@@ -4,6 +4,7 @@ from collections import deque
 import rospy
 import message_filters
 import ros_numpy
+import tf2_ros
 import tf
 
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2, LaserScan
@@ -39,9 +40,11 @@ class PointcloudProcess:
         self.intrinsic_matrix = get_camera_matrix(self.caminfo)
 
         self.rgb_frame = rgb_frame
-        self.depth_frame = depth_frame
+        # self.depth_frame = depth_frame
 
         self.listener = tf.TransformListener()
+        self.tf_buffer = tf2_ros.Buffer()
+        self.tf_listener = tf2_ros.TransformListener(self.tf_buffer)
 
         image_sub = rospy.Subscriber(image_sub_topic, Image, self.image_callback)
         scan_sub = rospy.Subscriber(sensor_sub_topic, LaserScan, self.sensor_callback)
@@ -56,7 +59,7 @@ class PointcloudProcess:
         self.messages.appendleft((time, rgb_image))
 
     def sensor_callback(self, scan):
-        self.messages.appendLeft(time)
+        self.messages.appendleft(scan)
 
     def publish_once_from_queue(self):
         if self.messages:
@@ -85,7 +88,7 @@ class PointcloudProcess:
     def publish_sensor(self, msg):
         try:
             time = msg.header.stamp
-            pose = self.listener.lookupTransform('odom', 'base_link', time)
+            pose = self.tf_buffer.lookup_transform('odom', 'base_link', time)
         except (tf.LookupException,
                 tf.ConnectivityException,
                 tf.ExtrapolationException):
