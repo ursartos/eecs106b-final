@@ -39,9 +39,8 @@ def create_grid(obstacle_list, width, height, resolution=0.01, terrains=[]):
 	# 				m[y][x] = 0
 
 	for terrain in terrains:
-		x1, x2 = m_to_pix(*(terrain[0]))
-		y1, y2 = m_to_pix(*(terrain[1]))
-		d, k = (terrain[2], terrain[3])
+		x1, x2, y1, y2 = m_to_pix(*(terrain[0]))
+		d, k = (terrain[1][0], terrain[2][0])
 		for x in range(x1, x2):
 			for y in range(y1, y2):
 				m[y][x] = [1, d, k]
@@ -85,10 +84,15 @@ def make_empty_map():
 	create_map([], 5, 5, "empty")
 
 def make_terrain_map():
-	create_map([], 10, 10, "terrains", terrains=[[[4, 8], [4, 8], 0.2, 0.2]], resolution=0.05)
+	create_map([], 10, 4, "terrain_noavoid", terrains=[[[3, 6], [0, 4], 0.1, 1]], resolution=0.01)
+	pass
+
+def make_two_terrains():
+	create_map([], 20, 6, "two_terrains", terrains=[[[2, 8, 0, 3], [0.5, 0.3], [0.5, 0.3]], [[2, 8, 3, 6], [0.5, 0.1], [0.5, 0.1]]])
 
 if __name__ == '__main__':
 	# make_map1()
 	# make_map2()
 	# make_empty_map()
-	make_terrain_map()
+	# make_terrain_map()
+	make_two_terrains()

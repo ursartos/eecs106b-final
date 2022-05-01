@@ -6,16 +6,14 @@ import message_filters
 import ros_numpy
 import tf
 
-from sensor_msgs.msg import Image, CameraInfo, PointCloud2
+from sensor_msgs.msg import Image, CameraInfo, PointCloud2, LaserScan
 import sensor_msgs.point_cloud2 as pc2
 from geometry_msgs.msg import PoseStamped, TransformStamped
 
 import numpy as np
 import cv2
 
-from cv_bridge import CvBridge
-
-from .analyze import dostuff
+from .analyze import dostuff, dosensorstuff
 
 def get_camera_matrix(camera_info_msg):
     return np.array(camera_info_msg.K).reshape((3,3))
@@ -32,71 +30,65 @@ class PointcloudProcess:
     def __init__(self, points_sub_topic,
                        image_sub_topic,
                        cam_info_topic,
-                       rgb_frame,
-                       depth_frame):
-
-        self.num_steps = 0
+                       sensor_sub_topic,
+                       rgb_frame):
 
         self.messages = deque([], 5)
         self.pointcloud_frame = None
-        points_sub = message_filters.Subscriber(points_sub_topic, PointCloud2)
-        image_sub = message_filters.Subscriber(image_sub_topic, Image)
-        caminfo_sub = message_filters.Subscriber(cam_info_topic, CameraInfo)
+        self.caminfo = rospy.wait_for_message(cam_info_topic, CameraInfo)
+        self.intrinsic_matrix = get_camera_matrix(self.caminfo)
 
         self.rgb_frame = rgb_frame
         self.depth_frame = depth_frame
 
-        self._bridge = CvBridge()
         self.listener = tf.TransformListener()
 
-        # self.points_pub = rospy.Publisher(points_pub_topic, PointCloud2, queue_size=10)
-        # self.image_pub = rospy.Publisher('segmented_image', Image, queue_size=10)
+        image_sub = rospy.Subscriber(image_sub_topic, Image, self.image_callback)
+        scan_sub = rospy.Subscriber(sensor_sub_topic, LaserScan, self.sensor_callback)
 
-        print('hello')
-        ts = message_filters.ApproximateTimeSynchronizer([points_sub, image_sub, caminfo_sub],
-                                                          1000, 100, allow_headerless=True)
-        # Commenting out point cloud stuff because that doesn't work for some reason
-        ts.registerCallback(self.callback)
-        # ts.registerCallback(self.image_callback)
-
-    def image_callback(self, image, info):
+    def image_callback(self, image):
         try:
-            intrinsic_matrix = get_camera_matrix(info)
             rgb_image = ros_numpy.numpify(image)
         except Exception as e:
             rospy.logerr(e)
             return
-        self.num_steps += 1
-        self.messages.appendleft((None, rgb_image, intrinsic_matrix))
+        time = image.header.stamp
+        self.messages.appendleft((time, rgb_image))
 
-    def callback(self, points_msg, image, info):
-        """Use this once we have points!"""
-        try:
-            intrinsic_matrix = get_camera_matrix(info)
-            rgb_image = ros_numpy.numpify(image)
-            points = ros_numpy.numpify(points_msg)
-        except Exception as e:
-            rospy.logerr(e)
-            return
-        self.num_steps += 1
-        self.messages.appendleft((points, rgb_image, intrinsic_matrix))
+    def sensor_callback(self, scan):
+        self.messages.appendLeft(time)
 
     def publish_once_from_queue(self):
         if self.messages:
-            points, image, info = self.messages.pop()
-            try:
-                trans, rot = self.listener.lookupTransform(
-                                                       self.rgb_frame,
-                                                       self.depth_frame,
-                                                       rospy.Time(0))
-                rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
-            except (tf.LookupException,
-                    tf.ConnectivityException,
-                    tf.ExtrapolationException):
-                return
+            msg = self.messages.pop()
+            if type(msg) == tuple:
+                self.publish_image(msg)
+            else:
+                self.publish_sensor(msg)
 
-            dostuff(points, image, info, trans, rot)
-            # points_msg = numpy_to_pc2_msg(points)
-            # self.points_pub.publish(points_msg)
-            # print("Published segmented pointcloud at timestamp:",
-                   # points_msg.header.stamp.secs)
+    def publish_image(self, msg):
+        time, image = msg
+        try:
+            trans, rot = self.listener.lookupTransform('odom', 'base_link', time)
+            rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
+            T_world_base = (rot, trans)
+
+            trans, rot = self.listener.lookupTransform(self.rgb_frame, 'odom', time)
+            rot = tf.transformations.quaternion_matrix(rot)[:3, :3]
+            T_rgb_world = (rot, trans)
+        except (tf.LookupException,
+                tf.ConnectivityException,
+                tf.ExtrapolationException):
+            return
+        dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
+
+    def publish_sensor(self, msg):
+        try:
+            time = msg.header.stamp
+            pose = self.listener.lookupTransform('odom', 'base_link', time)
+        except (tf.LookupException,
+                tf.ConnectivityException,
+                tf.ExtrapolationException):
+            return
+
+        dosensorstuff(msg, pose)

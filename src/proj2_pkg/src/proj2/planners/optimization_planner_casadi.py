@@ -65,18 +65,18 @@ def unicycle_robot_model(q, u, dt=0.01, terrains=[]):
     # d_ter = terrains_d[idx_x][idx_y]
     # d = MX(d_ter)
     # k = MX(k_ter)
-    d = MX(1)
-    k = MX(1)
-    for terrain in terrains:
-        # print("terrain", terrain)
-        x1, x2 = terrain[0][:2]
-        y1, y2 = terrain[0][2:]
-        dter, kter = terrain[1], terrain[2]
-        # print(dter, kter)
-        d = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(dter), d)
-        k = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(kter), k)
+    # d = MX(1)
+    # k = MX(1)
+    # for terrain in terrains:
+    #     # print("terrain", terrain)
+    #     x1, x2 = terrain[0][:2]
+    #     y1, y2 = terrain[0][2:]
+    #     dter, kter = terrain[1], terrain[2]
+    #     # print(dter, kter)
+    #     d = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(dter), d)
+    #     k = if_else(logic_and(y < y2, logic_and(x < x2, logic_and(x1 < x, y1 < y))), MX(kter), k)
 
-    q_dot = vertcat(d*v*cos(theta), d*v*sin(theta), k*omega)
+    q_dot = vertcat(v*cos(theta), v*sin(theta), omega)
 
     return q + dt*q_dot
 

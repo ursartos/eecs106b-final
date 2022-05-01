@@ -104,7 +104,7 @@ class UnicycleConverter():
         theta = tf.transformations.euler_from_quaternion([o.x, o.y, o.z, o.w])
         self.state.theta = theta[2]
 
-    def run(self):
+    def run(self, terrains = []):
         while not rospy.is_shutdown():
 
             # If we aren't using sim, get the state
