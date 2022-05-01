@@ -8,16 +8,14 @@ def main():
     RGB_IMAGE_TOPIC = '/camera/rgb/image_color'
     # POINTS_TOPIC = '/camera/depth_registered/points'
     SENSOR_TOPIC = '/scan'
+    GRID_PUB_TOPIC = '/feature_grid'
 
     RGB_FRAME = '/camera_rgb_optical_frame'
     # DEPTH_FRAME = '/camera_depth_optical_frame'
 
-    def callback(grid):
-        print('CALLED BACK')
-
     rospy.init_node('kinect_listener')
-    process = PointcloudProcess(RGB_IMAGE_TOPIC, CAM_INFO_TOPIC,
-                                SENSOR_TOPIC, RGB_FRAME, callback)
+    process = PointcloudProcess(RGB_IMAGE_TOPIC, CAM_INFO_TOPIC, SENSOR_TOPIC,
+                                GRID_PUB_TOPIC, RGB_FRAME)
     r = rospy.Rate(1000)
 
     while not rospy.is_shutdown():

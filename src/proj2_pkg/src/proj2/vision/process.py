@@ -10,6 +10,8 @@ import tf
 from sensor_msgs.msg import Image, CameraInfo, PointCloud2, LaserScan
 import sensor_msgs.point_cloud2 as pc2
 from geometry_msgs.msg import PoseStamped, TransformStamped
+from std_msgs.msg import Float32MultiArray
+from .ros_np_multiarray import to_multiarray_f32
 
 import numpy as np
 import cv2
@@ -31,8 +33,8 @@ class PointcloudProcess:
     def __init__(self, image_sub_topic,
                        cam_info_topic,
                        sensor_sub_topic,
-                       rgb_frame,
-                       callback):
+                       grid_pub_topic,
+                       rgb_frame):
 
         self.messages = deque([], 5)
         self.pointcloud_frame = None
@@ -41,7 +43,6 @@ class PointcloudProcess:
 
         self.rgb_frame = rgb_frame
         # self.depth_frame = depth_frame
-        self.callback = callback
 
         self.listener = tf.TransformListener()
         self.tf_buffer = tf2_ros.Buffer()
@@ -49,6 +50,8 @@ class PointcloudProcess:
 
         image_sub = rospy.Subscriber(image_sub_topic, Image, self.image_callback)
         scan_sub = rospy.Subscriber(sensor_sub_topic, LaserScan, self.sensor_callback)
+
+        self.grid_pub = rospy.Publisher(grid_pub_topic, Float32MultiArray, queue_size=5)
 
     def image_callback(self, image):
         try:
@@ -86,7 +89,8 @@ class PointcloudProcess:
                 tf.ConnectivityException,
                 tf.ExtrapolationException):
             return
-        dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world, self.callback)
+        features = dostuff(image, self.intrinsic_matrix, T_world_base, T_rgb_world)
+        self.grid_pub.publish(to_multiarray_f32(features))
 
     def publish_sensor(self, msg):
         try:
