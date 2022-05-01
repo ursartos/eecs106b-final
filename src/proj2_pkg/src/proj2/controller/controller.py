@@ -249,6 +249,8 @@ class UnicycleModelController(object):
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
 
+        print("intended v real vel", target_velocity - cur_velocity)
+
         self.k = est_k
         self.d = est_d
         if abs(v) > 0.01:

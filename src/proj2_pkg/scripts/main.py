@@ -175,6 +175,7 @@ if __name__ == '__main__':
                                         terrains=terrain_map)
             planner = OptimizationPlanner(config)
 
+            print(start)
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
             
             print("Predicted Initial State")

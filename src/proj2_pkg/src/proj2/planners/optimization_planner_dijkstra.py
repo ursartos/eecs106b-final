@@ -9,7 +9,8 @@ from collections import defaultdict
 from heapq import *
 
 def position_to_grid(terrains, pos, side_length):
-    return (pos/float(side_length) * terrains.shape[0]).astype(int)
+    print("pose", pos, side_length, terrains.shape, pos/float(side_length) * terrains.shape[0])
+    return (np.round(pos/float(side_length) * terrains.shape[0])).astype(int)
     
 def xy_to_i(terrain_map, xy):
     return terrain_map.shape[0] * xy[0] + xy[1]
@@ -127,8 +128,9 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     density = 150
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
-        side_length = q_ub[0] - q_lb[0] + 1
+        side_length = q_ub[0] - q_lb[0]
     path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    print("path", path)
     waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
