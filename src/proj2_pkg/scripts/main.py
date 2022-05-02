@@ -15,6 +15,8 @@ import rospy
 from proj2_pkg.msg import UnicycleCommandMsg, UnicycleStateMsg
 from proj2.planners import RRTPlanner, OptimizationPlanner, UnicycleConfigurationSpace #Sinusoid_Planner
 from proj2.controller import UnicycleModelController
+from proj2.vision.ros_np_multiarray import to_numpy_f32
+from std_msgs.msg import Float32MultiArray
 
 def parse_args():
     """
@@ -26,6 +28,7 @@ def parse_args():
     parser.add_argument('-x', type=float, default=1.0, help='Desired position in x')
     parser.add_argument('-y', type=float, default=1.0, help='Desired position in y')
     parser.add_argument('-theta', type=float, default=0.0, help='Desired turtlebot angle')
+    parser.add_argument('-sim', type=bool, default=False, help='Use simulation')
     return parser.parse_args()
 
 def get_terrain_map(terrains, xy_low, xy_high, res=1):
@@ -91,7 +94,7 @@ if __name__ == '__main__':
     rospy.wait_for_service('/converter/reset')
     print('found!')
     reset = rospy.ServiceProxy('/converter/reset', EmptySrv)
-    reset()
+    # reset()
 
     if not rospy.has_param("/environment/obstacles"):
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
@@ -134,6 +137,19 @@ if __name__ == '__main__':
     raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
 
     args.planner = 'opt'
+
+    RGB_FRAME = '/camera_rgb_optical_frame'
+    CAM_INFO_TOPIC = '/camera/rgb/camera_info'
+    RGB_IMAGE_TOPIC = '/camera/rgb/image_color'
+    SENSOR_TOPIC = '/scan'
+
+    def callback(grid):
+        global terrain_visual_features
+        if not args.sim:
+            terrain_visual_features = to_numpy_f32(grid)
+            print(terrain_visual_features.shape)
+
+    sub = rospy.Subscriber('/feature_grid', Float32MultiArray, callback)
 
     if args.planner == 'sin':
         raise ValueError("don't use sin, just don't")
@@ -196,4 +212,4 @@ if __name__ == '__main__':
 
             raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
             config.terrains = terrain_map
-            print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))
+            # print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))
