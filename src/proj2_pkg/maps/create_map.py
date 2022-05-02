@@ -97,7 +97,7 @@ def make_terrain_map2():
 	res=1
 	for i in range(res*x_len):
 		for j in range(res*y_len):
-			d = np.random.random()*2
+			d = np.random.random()*0.8 + 0.2
 			terrains.append([[i, i+1],[j,j+1], [d, 0], [1,0]])
 			terrains_launch.append([[i, i+1,j,j+1], [d,0],[1,0]])
 	create_map([], x_len, y_len, "terrains_random", terrains=terrains_launch, resolution=0.01)
@@ -110,5 +110,5 @@ if __name__ == '__main__':
 	# make_map2()
 	# make_empty_map()
 	# make_terrain_map()
-	make_two_terrains()
-	# make_terrain_map2()
+	# make_two_terrains()
+	make_terrain_map2()
