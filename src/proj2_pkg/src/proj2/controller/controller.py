@@ -74,7 +74,7 @@ class UnicycleModelController(object):
         terrains = mock_terrains
         if len(plan) == 0:
             return
-        print("plan dt", plan.dt)
+
         rate = rospy.Rate(int(1 / plan.dt))
         start_t = rospy.Time.now()
         cur_state = self.state
@@ -248,6 +248,8 @@ class UnicycleModelController(object):
         """
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
+
+        print("intended v real vel", target_velocity - cur_velocity)
 
         self.k = est_k
         self.d = est_d

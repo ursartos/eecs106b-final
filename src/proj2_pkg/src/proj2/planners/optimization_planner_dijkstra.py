@@ -9,7 +9,8 @@ from collections import defaultdict
 from heapq import *
 
 def position_to_grid(terrains, pos, side_length):
-    return (pos/float(side_length) * terrains.shape[0]).astype(int)
+    print("pose", pos, side_length, terrains.shape, pos/float(side_length) * terrains.shape[0])
+    return (np.round(pos/float(side_length) * terrains.shape[0])).astype(int)
     
 def xy_to_i(terrain_map, xy):
     return terrain_map.shape[0] * xy[0] + xy[1]
@@ -41,7 +42,7 @@ def dijkstra(edges, f, t):
 
     return float("inf"), None
 
-def get_d_for_coords(terrains_grid, point1, point2):
+def get_d_for_coords(terrains_grid, point1, point2, debug=True):
     r = point2[0] - point1[0]
     c = point2[1] - point1[1]
     worst_case_d = float('inf')
@@ -57,7 +58,8 @@ def get_d_for_coords(terrains_grid, point1, point2):
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
     elif abs(r) == 1 and abs(c) == 1:
         worst_case_d = min(worst_case_d, terrains_grid[bottom_left][0])
-    # print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
+    if debug:
+        print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
 def shortest_path_to_goal(terrains_grid, side_length, start, goal):
@@ -65,7 +67,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
-    # print("Start", start_node, "Goal", goal_node)
+    print("Start", position_to_grid(terrains_grid, start, side_length), "Goal", position_to_grid(terrains_grid, goal, side_length))
 
     for i in range(len(terrains_grid)):
         for j in range(len(terrains_grid[0])):
@@ -80,7 +82,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
                     if j + c < 0 or j + c >= len(terrains_grid[0]):
                         continue
                     neighbor_node_idx = xy_to_i(terrains_grid, [i + r, j + c])
-                    worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c])
+                    worst_case_d = get_d_for_coords(terrains_grid, [i, j], [i + r, j + c], debug=False)
 
                     graph.add_edge(current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d)
                     edges.append((current_node_idx, neighbor_node_idx, float(np.sqrt(abs(r) + abs(c))) / worst_case_d))
@@ -126,8 +128,9 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     density = 150
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
-        side_length = q_ub[0] - q_lb[0] + 1
+        side_length = q_ub[0] - q_lb[0]
     path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    print("path", path)
     waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n
 
