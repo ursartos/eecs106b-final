@@ -51,11 +51,16 @@ def get_terrain_kd(terrain_map, controller):
     for i in range(terrain_map.shape[0]):
         for j in range(terrain_map.shape[1]):
             terrain_input = np.array([terrain_map[i, j]])
-            d, d_uncertainty, d_aleatoric = controller.d_estimator.predict(terrain_input)
-            k, k_uncertainty, k_aleatoric = controller.k_estimator.predict(terrain_input)
-            kd_map[i, j] = [max(0.01, d), max(0.01, k)]
-            kd_aleatoric_map[i, j] = [max(0., d_aleatoric), max(0., k_aleatoric)]
-            kd_epistemic_map[i, j] = [max(0., d_uncertainty), max(0, k_uncertainty)]
+            if np.any(np.isnan(terrain_input)):
+                kd_map[i, j] = [1, 1]
+                kd_aleatoric_map[i, j] = [0, 0]
+                kd_epistemic_map[i, j] = [1, 1]
+            else:
+                d, d_uncertainty, d_aleatoric = controller.d_estimator.predict(terrain_input)
+                k, k_uncertainty, k_aleatoric = controller.k_estimator.predict(terrain_input)
+                kd_map[i, j] = [max(0.01, d), max(0.01, k)]
+                kd_aleatoric_map[i, j] = [max(0., d_aleatoric), max(0., k_aleatoric)]
+                kd_epistemic_map[i, j] = [max(0., d_uncertainty), max(0, k_uncertainty)]
     return kd_map, kd_aleatoric_map, kd_epistemic_map, np.max((np.zeros(kd_map.shape), kd_map - np.sqrt(kd_aleatoric_map)), axis=0)
 
 # def get_terrain_image(filename='/path/to/file'):
@@ -94,7 +99,7 @@ if __name__ == '__main__':
     rospy.wait_for_service('/converter/reset')
     print('found!')
     reset = rospy.ServiceProxy('/converter/reset', EmptySrv)
-    # reset()
+    reset()
 
     if not rospy.has_param("/environment/obstacles"):
         raise ValueError("No environment information loaded on parameter server. Did you run init_env.launch?")
@@ -126,7 +131,7 @@ if __name__ == '__main__':
 
     u1_max = 0.5
 
-    terrain_map_res = 1
+    terrain_map_res = 5
     controller = UnicycleModelController()
     rospy.sleep(1)
 
@@ -147,7 +152,6 @@ if __name__ == '__main__':
         global terrain_visual_features
         if not args.sim:
             terrain_visual_features = to_numpy_f32(grid)
-            print(terrain_visual_features.shape)
 
     sub = rospy.Subscriber('/feature_grid', Float32MultiArray, callback)
 

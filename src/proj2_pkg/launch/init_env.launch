@@ -12,6 +12,15 @@
         </rosparam>
     </group>
 
+    <group if="$(eval map == 'empty_large.yaml')">
+        <rosparam>
+            environment/terrains: []
+            environment/obstacles: []
+            environment/low_lims: [-5, -5]
+            environment/high_lims: [5, 5]
+        </rosparam>
+    </group>
+
     <group if="$(eval map == 'map1.yaml')">
         <rosparam>
             environment/obstacles: [[6, 3.5, 1.5], [3.5, 6.5, 1]]

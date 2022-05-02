@@ -31,6 +31,8 @@ class UnicycleModelController(object):
         self.d = 1
         self.k = 1
         self.debug_input = -0.8
+
+        self.lower_state = np.array([-5.0, -5.0])
         rospy.on_shutdown(self.shutdown)
 
     # def current_pos_to_terrain(self, pos, terrains):
@@ -63,7 +65,8 @@ class UnicycleModelController(object):
         mocked = [commanded[0] * d, commanded[1] * k]
         return mocked
 
-    def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1, mock_terrains=[]):
+    def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1,
+                    mock_terrains=[]):
         """
         Executes a plan made by the planner
 
@@ -107,7 +110,7 @@ class UnicycleModelController(object):
 
             # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
             try:
-                rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
+                rounded_coordinates = (terrain_map_res * (self.state[:2] - self.lower_state)).astype(int)
                 current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
                 est_d, est_k = terrain_map[tuple(rounded_coordinates)]
             except:
@@ -123,7 +126,7 @@ class UnicycleModelController(object):
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
                 sys_id_count += 1
 
-                if sys_id_count % sys_id_period == 0:
+                if sys_id_count % sys_id_period == 0 and not np.any(np.isnan(current_terrain_vector)):
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                     # self.estimate_parameters_kernel(self.buffer)
                     inputs_agg = []
@@ -252,7 +255,7 @@ class UnicycleModelController(object):
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
 
-        print("intended v real vel", target_velocity, cur_velocity)
+        # print("intended v real vel", target_velocity - cur_velocity)
 
         self.k = est_k
         self.d = est_d
@@ -274,7 +277,7 @@ class UnicycleModelController(object):
         # control_input[1] = 3.0
         # print(control_input, np.linalg.norm(cur_velocity))
 
-        self.cmd(self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
+        self.cmd(control_input) #self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
         return control_input
 
     def cmd(self, msg):

@@ -98,16 +98,16 @@ def gabor_filters(img):
 
 def average_hsvs(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).reshape((-1, 3))
-    return np.mean(img, axis=0)
+    return np.mean(img, axis=0) / 255
 
 
 def average_rgbs(img):
     print(img.shape)
-    return np.mean(img, axis=0)
+    return np.mean(img, axis=0) / 255
 
 def rms_contrast(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return np.std(img_grey, axis=0)
+    return np.std(img_grey, axis=0) / 255
 
 
 # images = np.stack((cv2.imread(

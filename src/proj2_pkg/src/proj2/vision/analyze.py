@@ -6,6 +6,7 @@ from feature_extractor import extract_features
 class FeatureGrid(VoxelGrid):
     def __init__(self):
         VoxelGrid.__init__(self, voxel_size=0.2, pixels_per_voxel=50, feature_size=7)
+        self.grid.fill(np.nan)
 
     def compute_features(self, voxels):
         return extract_features(voxels)
