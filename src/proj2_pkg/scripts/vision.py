@@ -2,6 +2,7 @@
 import rospy
 
 from proj2.vision import PointcloudProcess
+from std_srvs.srv import Empty as EmptySrv
 
 def main():
     CAM_INFO_TOPIC = '/camera/rgb/camera_info'
@@ -14,6 +15,13 @@ def main():
     # DEPTH_FRAME = '/camera_depth_optical_frame'
 
     rospy.init_node('kinect_listener')
+
+    print('Waiting for converter/reset service ...')
+    rospy.wait_for_service('/converter/reset')
+    print('found!')
+    reset = rospy.ServiceProxy('/converter/reset', EmptySrv)
+    reset()
+
     process = PointcloudProcess(RGB_IMAGE_TOPIC, CAM_INFO_TOPIC, SENSOR_TOPIC,
                                 GRID_PUB_TOPIC, RGB_FRAME)
     r = rospy.Rate(1000)

@@ -28,7 +28,7 @@ def extract_features(voxels):
 
         filtered_img = np.expand_dims(filtered_img, axis=1)
         features = []
-        features.extend(average_hsvs(filtered_img))
+        features.extend(average_rgbs(filtered_img))
         features.extend(average_hsvs(filtered_img))
         features.extend(rms_contrast(filtered_img))
         all_features.append(features)
@@ -98,16 +98,16 @@ def gabor_filters(img):
 
 def average_hsvs(img):
     img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV).reshape((-1, 3))
-    return np.mean(img, axis=0)
+    return np.mean(img, axis=0) / 255
 
 
 def average_rgbs(img):
-    print(img.shape)
-    return np.mean(img, axis=0)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB).reshape((-1, 3))
+    return np.mean(img, axis=0) / 255
 
 def rms_contrast(img):
     img_grey = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    return np.std(img_grey, axis=0)
+    return np.std(img_grey, axis=0) / 255
 
 
 # images = np.stack((cv2.imread(
