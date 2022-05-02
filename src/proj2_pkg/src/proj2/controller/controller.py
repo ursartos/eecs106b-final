@@ -106,9 +106,12 @@ class UnicycleModelController(object):
                 break
 
             # current_terrain_vector = self.current_pos_to_terrain(self.state[:2], terrains)[0] # eventually this will be made into vision-based
-            rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
-            current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
-            est_d, est_k = terrain_map[tuple(rounded_coordinates)]
+            try:
+                rounded_coordinates = (terrain_map_res * self.state[:2]).astype(int)
+                current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
+                est_d, est_k = terrain_map[tuple(rounded_coordinates)]
+            except:
+                print(terrain_map_res, self.state[:2], terrain_map_res * self.state[:2])
 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)
@@ -249,7 +252,7 @@ class UnicycleModelController(object):
         theta = cur_position[2]
         v = self.vel_cmd if self.vel_cmd else open_loop_input[0]
 
-        print("intended v real vel", target_velocity - cur_velocity)
+        print("intended v real vel", target_velocity, cur_velocity)
 
         self.k = est_k
         self.d = est_d

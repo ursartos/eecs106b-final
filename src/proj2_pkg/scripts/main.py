@@ -150,15 +150,15 @@ if __name__ == '__main__':
         goals = [start, goal]
         counter = 1
         while True:
-            plt.imshow(raw_terrain_map.transpose(1, 0, 2)[:, ::-1, 0])
+            plt.imshow(raw_terrain_map.transpose(1, 0, 2)[::-1, :, 0])
             plt.title("Raw Terrain D Map")
             plt.colorbar()
             plt.show()
-            plt.imshow(terrain_aleatoric_map.transpose(1, 0, 2)[:, ::-1, 0])
+            plt.imshow(terrain_aleatoric_map.transpose(1, 0, 2)[::-1, :, 0])
             plt.title("Terrain D Aleatoric Uncertainty Map")
             plt.colorbar()
             plt.show()
-            plt.imshow(terrain_epistemic_map.transpose(1, 0, 2)[:, ::-1, 0])
+            plt.imshow(terrain_epistemic_map.transpose(1, 0, 2)[::-1, :, 0])
             plt.title("Terrain D Epistemic Uncertanity Map")
             plt.colorbar()
             plt.show()
