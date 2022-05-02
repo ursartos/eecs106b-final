@@ -112,8 +112,10 @@ class UnicycleModelController(object):
             try:
                 rounded_coordinates = (terrain_map_res * (self.state[:2] - self.lower_state)).astype(int)
                 current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
+                print(rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
                 est_d, est_k = terrain_map[tuple(rounded_coordinates)]
-            except:
+            except Exception as e:
+                print(e)
                 print(terrain_map_res, self.state[:2], terrain_map_res * self.state[:2])
 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
@@ -126,7 +128,7 @@ class UnicycleModelController(object):
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
                 sys_id_count += 1
 
-                if sys_id_count % sys_id_period == 0 and not np.any(np.isnan(current_terrain_vector)):
+                if sys_id_count % sys_id_period == 0 and not np.isnan(current_terrain_vector[0]):
                     self.buffer.append((cur_state, self.state, t-prev_state_change_time, np.mean(inputs_agg, axis=0), current_terrain_vector))
                     # self.estimate_parameters_kernel(self.buffer)
                     inputs_agg = []
@@ -266,7 +268,7 @@ class UnicycleModelController(object):
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                               [0, 0]])
 
-        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
+        taus = target_acceleration[:2] + 1.5 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
         self.vel_cmd = max(min(self.vel_cmd, 2), -2)

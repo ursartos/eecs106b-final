@@ -39,7 +39,7 @@ def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
     """
     imageGrid.update(image, cam_matrix, T_world_base, T_rgb_world)
     warped = featureGrid.update(image, cam_matrix, T_world_base, T_rgb_world)
-    cv2.imshow('image', warped)
+    # cv2.imshow('image', warped)
 
     # cv2.imshow('grid', cv2.resize(grid, None, fx=20, fy=20, interpolation=cv2.INTER_NEAREST))
     # cv2.imshow('grid', imageGrid.grid)
@@ -48,7 +48,7 @@ def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
     grid = cv2.resize(grid, (1000, 1000), interpolation=cv2.INTER_NEAREST)
     grid = grid.reshape((1000, 1000, 1))
 
-    cv2.imshow('grid', imageGrid.grid * (1 - grid))
+    cv2.imshow('grid', (imageGrid.grid * (1 - grid))[::-1])
     cv2.waitKey(1)
 
     return featureGrid.grid

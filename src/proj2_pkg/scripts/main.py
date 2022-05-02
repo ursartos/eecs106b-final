@@ -8,6 +8,7 @@ import numpy as np
 import sys
 import argparse
 import matplotlib.pyplot as plt
+import time
 
 from std_srvs.srv import Empty as EmptySrv
 import rospy
@@ -51,7 +52,7 @@ def get_terrain_kd(terrain_map, controller):
     for i in range(terrain_map.shape[0]):
         for j in range(terrain_map.shape[1]):
             terrain_input = np.array([terrain_map[i, j]])
-            if np.any(np.isnan(terrain_input)):
+            if np.isnan(terrain_input[0, 0]):
                 kd_map[i, j] = [1, 1]
                 kd_aleatoric_map[i, j] = [0, 0]
                 kd_epistemic_map[i, j] = [1, 1]
@@ -151,7 +152,8 @@ if __name__ == '__main__':
     def callback(grid):
         global terrain_visual_features
         if not args.sim:
-            terrain_visual_features = to_numpy_f32(grid)
+            terrain_visual_features = to_numpy_f32(grid).transpose(1, 0, 2)
+            # print(zip(*np.where(~np.any(np.isnan(terrain_visual_features), axis=2))))
 
     sub = rospy.Subscriber('/feature_grid', Float32MultiArray, callback)
 
@@ -169,11 +171,21 @@ if __name__ == '__main__':
     elif args.planner == 'opt':
         goals = [start, goal]
         counter = 1
+        time.sleep(1)
+        saved_visual_featues = terrain_visual_features
         while True:
-            plt.imshow(raw_terrain_map.transpose(1, 0, 2)[::-1, :, 0])
-            plt.title("Raw Terrain D Map")
-            plt.colorbar()
-            plt.show()
+            fig, (ax1, ax2) = plt.subplots(1, 2)
+            ax1.set_title("Raw Terrain D Map")
+            ax2.set_title("Terrain RGB Features")
+
+            im = ax1.imshow(raw_terrain_map.transpose(1, 0, 2)[::-1, :, 0])
+            plt.colorbar(im, ax=ax1)
+            print(saved_visual_featues[:,:,:3].shape)
+            ax2.imshow(saved_visual_featues[:,:,:3].transpose(1, 0, 2)[::-1, :])
+
+            fig.show()
+
+            fig = plt.figure()
             plt.imshow(terrain_aleatoric_map.transpose(1, 0, 2)[::-1, :, 0])
             plt.title("Terrain D Aleatoric Uncertainty Map")
             plt.colorbar()
@@ -214,6 +226,7 @@ if __name__ == '__main__':
             counter += 1
             goal = goals[counter % 2]
 
+            saved_visual_featues = terrain_visual_features
             raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
             config.terrains = terrain_map
             # print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))
