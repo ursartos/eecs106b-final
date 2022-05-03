@@ -3,6 +3,9 @@ import numpy as np
 from .VoxelGrid import VoxelGrid
 from feature_extractor import extract_features
 
+import rospy
+from std_srvs.srv import Empty as EmptySrv, EmptyResponse
+
 class FeatureGrid(VoxelGrid):
     def __init__(self):
         VoxelGrid.__init__(self, voxel_size=0.2, pixels_per_voxel=50, feature_size=7)
@@ -28,6 +31,13 @@ imageGrid = ImageGrid()
 featureGrid = FeatureGrid()
 obstacleGrid = ObstacleGrid()
 
+def reset(_arg):
+    imageGrid.grid.fill(0)
+    featureGrid.grid.fill(np.nan)
+    obstacleGrid.grid.fill(0)
+    return EmptyResponse()
+
+rospy.Service('vision/reset', EmptySrv, reset)
 
 def dostuff(image, cam_matrix, T_world_base, T_rgb_world):
     """Process camera data.

@@ -130,7 +130,7 @@ class UnicycleConverter():
                 self.state.theta = yaw
 
             # Now publish the state
-            print('publish state', self.state)
+            # print('publish state', self.state)
             self.state_publisher.publish(self.state)
 
             # Now execute commands

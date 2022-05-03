@@ -62,11 +62,11 @@ def get_d_for_coords(terrains_grid, point1, point2, debug=True):
         print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
-def shortest_path_to_goal(terrains_grid, side_length, start, goal):
+def shortest_path_to_goal(terrains_grid, side_length, start, goal, q_lb):
     graph = Graph()
     edges = []
-    start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
-    goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
+    start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start - np.concatenate((q_lb, [0])), side_length))
+    goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal - np.concatenate((q_lb, [0])), side_length))
     print("Start", position_to_grid(terrains_grid, start, side_length), "Goal", position_to_grid(terrains_grid, goal, side_length))
 
     for i in range(len(terrains_grid)):
@@ -104,7 +104,7 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
     indices = []
     # print(path)
     for node in path:
-        real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
+        real_world_points.append(i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)) + q_lb)
         # print("Added real world point", i_to_xy(terrains_grid, node), i_to_xy(terrains_grid, node) * side_length / float(len(terrains_grid)))
         indices.append(i_to_xy(terrains_grid, node))
     print("Created trajectory")
@@ -129,7 +129,7 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0]
-    path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal, q_lb)
     print("path", path)
     waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
     return waypoints, inputs, n

@@ -112,7 +112,7 @@ class UnicycleModelController(object):
             try:
                 rounded_coordinates = (terrain_map_res * (self.state[:2] - self.lower_state)).astype(int)
                 current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
-                print(rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
+                # print(rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
                 est_d, est_k = terrain_map[tuple(rounded_coordinates)]
             except Exception as e:
                 print(e)
@@ -259,8 +259,10 @@ class UnicycleModelController(object):
 
         # print("intended v real vel", target_velocity - cur_velocity)
 
-        self.k = est_k
-        self.d = est_d
+        self.k = 0.1 #max(0.2, est_k)
+        self.d = 1 #est_d
+
+        # print(self.k, self.d)
         if abs(v) > 0.01:
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                             [-np.sin(theta)/(v*self.k), np.cos(theta)/(v*self.k)]])
@@ -268,7 +270,7 @@ class UnicycleModelController(object):
             A_inv = np.array([[np.cos(theta)/self.d, np.sin(theta)/self.d],
                               [0, 0]])
 
-        taus = target_acceleration[:2] + 1.5 * (target_position[:2] - cur_position[:2]) + 1.5 * (target_velocity[:2] - cur_velocity[:2])
+        taus = target_acceleration[:2] + 0.5 * (target_position[:2] - cur_position[:2]) + 0.5 * (target_velocity[:2] - cur_velocity[:2])
         control_input = np.matmul(A_inv, np.reshape(taus, (2,1)))
         self.vel_cmd += control_input[0] * dt
         self.vel_cmd = max(min(self.vel_cmd, 2), -2)
@@ -279,6 +281,7 @@ class UnicycleModelController(object):
         # control_input[1] = 3.0
         # print(control_input, np.linalg.norm(cur_velocity))
 
+        # print('control input', control_input)
         self.cmd(control_input) #self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
         return control_input
 

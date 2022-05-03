@@ -53,7 +53,7 @@ def get_terrain_kd(terrain_map, controller):
         for j in range(terrain_map.shape[1]):
             terrain_input = np.array([terrain_map[i, j]])
             if np.isnan(terrain_input[0, 0]):
-                kd_map[i, j] = [1, 1]
+                kd_map[i, j] = [0.5, 0.5]
                 kd_aleatoric_map[i, j] = [0, 0]
                 kd_epistemic_map[i, j] = [1, 1]
             else:
@@ -100,6 +100,10 @@ if __name__ == '__main__':
     rospy.wait_for_service('/converter/reset')
     print('found!')
     reset = rospy.ServiceProxy('/converter/reset', EmptySrv)
+    reset()
+    rospy.wait_for_service('/vision/reset')
+    print('found!')
+    reset = rospy.ServiceProxy('/vision/reset', EmptySrv)
     reset()
 
     if not rospy.has_param("/environment/obstacles"):
@@ -207,8 +211,11 @@ if __name__ == '__main__':
                                         terrains=terrain_map)
             planner = OptimizationPlanner(config)
 
-            print(start)
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
+
+            print("Times", plan.times)
+            print("positions", plan.positions)
+            print("inputs", plan.open_loop_inputs)
             
             print("Predicted Initial State")
             print(plan.start_position())
@@ -218,7 +225,7 @@ if __name__ == '__main__':
             planner.plot_execution()
 
             controller.execute_plan(plan, terrain_vectors=terrain_visual_features,
-                                          terrain_map=terrain_map, terrain_map_res=terrain_map_res,
+                                          terrain_map=raw_terrain_map, terrain_map_res=terrain_map_res,
                                           mock_terrains=terrains)
             print("Final State")
             print(controller.state)
