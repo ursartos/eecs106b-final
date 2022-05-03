@@ -17,12 +17,45 @@ from .configuration_space import UnicycleConfigurationSpace, Plan, expanded_obst
 # from .optimization_planner_casadi import plan_to_pose
 from .optimization_planner_dijkstra import plan_to_pose
 
+def make_plan(q_opt, u_opt, N, dt):
+    times = []
+    target_positions = []
+    open_loop_inputs = []
+    t = 0
+
+    # print(q_opt.shape)
+    # print(u_opt.shape)
+    # print(N)
+    q_opt = q_opt.T
+    u_opt = u_opt.T
+
+    for i in range(0, N-1):
+        qi = np.array([q_opt[0][i], q_opt[1][i], q_opt[2][i]])
+        ui = np.array([u_opt[0][i], u_opt[1][i]])
+        times.append(t)
+        target_positions.append(qi)
+        open_loop_inputs.append(ui)
+        t = t + dt
+
+    # We add one extra step since q_opt has one more state that u_opt
+    qi = np.array([q_opt[0][N-1], q_opt[1][N-1], q_opt[2][N-1]])
+    ui = np.array([0.0, 0.0])
+    times.append(t)
+    target_positions.append(qi)
+    open_loop_inputs.append(ui)
+
+    return Plan(np.array(times), np.array(target_positions), np.array(open_loop_inputs), dt)
+
 class OptimizationPlanner(object):
-    def __init__(self, config_space):
+    def __init__(self, config_space, gt_terrains):
         self.config_space = config_space
 
         self.input_low_lims = self.config_space.input_low_lims
         self.input_high_lims = self.config_space.input_high_lims
+        self.gt_terrains = gt_terrains
+        self.optimal_plan = None
+        self.true_cost = None
+        self.optimal_cost = None
 
     def plan_to_pose(self, start, goal, dt=0.01, N=1000):
         """
@@ -54,38 +87,19 @@ class OptimizationPlanner(object):
             #     self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
             #     n=N, dt=dt, terrains=self.config_space.terrains)
 
-            q_opt, u_opt, N = plan_to_pose(np.array(start), np.array(goal), 
+            q_opt, u_opt, N, proposed_plan, _, _ = plan_to_pose(np.array(start), np.array(goal), 
                 self.config_space.low_lims, self.config_space.high_lims, 
                 self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
                 dt=dt, terrain_map=self.config_space.terrains)
 
-            times = []
-            target_positions = []
-            open_loop_inputs = []
-            t = 0
+            q_opt_gt, u_opt_gt, N_gt, _, self.true_cost, self.optimal_cost = plan_to_pose(np.array(start), np.array(goal), 
+                self.config_space.low_lims, self.config_space.high_lims, 
+                self.input_low_lims, self.input_high_lims, self.config_space.obstacles, 
+                dt=dt, terrain_map=self.gt_terrains, proposed_plan=proposed_plan)
 
-            # print(q_opt.shape)
-            # print(u_opt.shape)
-            # print(N)
-            q_opt = q_opt.T
-            u_opt = u_opt.T
+            self.plan = make_plan(q_opt, u_opt, N, dt)
+            self.optimal_plan = make_plan(q_opt_gt, u_opt_gt, N_gt, dt)
 
-            for i in range(0, N-1):
-                qi = np.array([q_opt[0][i], q_opt[1][i], q_opt[2][i]])
-                ui = np.array([u_opt[0][i], u_opt[1][i]])
-                times.append(t)
-                target_positions.append(qi)
-                open_loop_inputs.append(ui)
-                t = t + dt
-
-            # We add one extra step since q_opt has one more state that u_opt
-            qi = np.array([q_opt[0][N-1], q_opt[1][N-1], q_opt[2][N-1]])
-            ui = np.array([0.0, 0.0])
-            times.append(t)
-            target_positions.append(qi)
-            open_loop_inputs.append(ui)
-
-            self.plan = Plan(np.array(times), np.array(target_positions), np.array(open_loop_inputs), dt)
         return self.plan
 
     def plot_execution(self):

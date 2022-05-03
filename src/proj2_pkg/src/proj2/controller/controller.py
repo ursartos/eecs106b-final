@@ -32,7 +32,8 @@ class UnicycleModelController(object):
         self.k = 1
         self.debug_input = -0.8
 
-        self.lower_state = np.array([-5.0, -5.0])
+        using_real = False
+        self.lower_state = np.array([-5.0, -5.0]) if using_real else np.zeros(2)
         rospy.on_shutdown(self.shutdown)
 
     # def current_pos_to_terrain(self, pos, terrains):
@@ -96,6 +97,10 @@ class UnicycleModelController(object):
         sys_id_count = 0
         sys_id_period = 1
         while not rospy.is_shutdown():
+            if (np.isnan(self.state[0])): 
+                print("nan'd")
+                continue 
+
             t = (rospy.Time.now() - start_t).to_sec()
 
             dt = plan.dt
@@ -112,11 +117,12 @@ class UnicycleModelController(object):
             try:
                 rounded_coordinates = (terrain_map_res * (self.state[:2] - self.lower_state)).astype(int)
                 current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
-                print(rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
+                print("rounded coords", rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
                 est_d, est_k = terrain_map[tuple(rounded_coordinates)]
             except Exception as e:
                 print(e)
                 print(terrain_map_res, self.state[:2], terrain_map_res * self.state[:2])
+                print((terrain_map_res * (self.state[:2] - self.lower_state)).astype(int))
 
             target_acceleration = ((next_state - state)/dt - (state - prev_state)/dt)/dt
             target_velocity = ((next_state - state)/dt)

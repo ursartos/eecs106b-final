@@ -66,14 +66,16 @@ def get_terrain_kd(terrain_map, controller):
 
 # def get_terrain_image(filename='/path/to/file'):
 
-def compute_estimator_error(estimate, truth_lst):
+def convert_truth(estimate, truth_lst):
     truth = np.ones(estimate.shape)
     for terr in truth_lst:
         x_low, x_high, y_low, y_high = terr[0]
         for x in range(x_low, x_high):
             for y in range(y_low, y_high):
                 truth[x,y] = terr[1][0]
+    return truth
 
+def compute_estimator_error(estimate, truth):
     average_error = 0
     errors = []
     for i in range(estimate.shape[0]):
@@ -173,6 +175,9 @@ if __name__ == '__main__':
         counter = 1
         time.sleep(1)
         saved_visual_featues = terrain_visual_features
+        i = 0
+        estimates = []
+        optimal = []
         while True:
             fig, (ax1, ax2) = plt.subplots(1, 2)
             ax1.set_title("Raw Terrain D Map")
@@ -197,6 +202,8 @@ if __name__ == '__main__':
 
             start = controller.state
 
+            terrains_truth = convert_truth(terrain_map, terrains)
+
             ## Edit the dt and N arguments to your needs.
             config = UnicycleConfigurationSpace(xy_low,
                                         xy_high,
@@ -205,10 +212,13 @@ if __name__ == '__main__':
                                         obstacles,
                                         0.15,start,goal,
                                         terrains=terrain_map)
-            planner = OptimizationPlanner(config)
+            planner = OptimizationPlanner(config, terrains_truth)
 
             print(start)
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
+            print(planner.optimal_plan.positions)
+            print(plan.positions)
+            print("difference from optimal", planner.true_cost - planner.optimal_cost)
             
             print("Predicted Initial State")
             print(plan.start_position())
@@ -229,4 +239,6 @@ if __name__ == '__main__':
             saved_visual_featues = terrain_visual_features
             raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
             config.terrains = terrain_map
-            # print("estimator error", compute_estimator_error(terrain_map[:,:,0], terrains))
+            abs_error, errors = compute_estimator_error(terrain_map[:,:,0], terrains_truth[:,:,0])
+            print("estimator error", abs_error)
+            print("optimal error", planner.true_cost - planner.optimal_cost)

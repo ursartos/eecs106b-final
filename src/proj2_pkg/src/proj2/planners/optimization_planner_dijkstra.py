@@ -62,7 +62,7 @@ def get_d_for_coords(terrains_grid, point1, point2, debug=True):
         print("Worst case d", worst_case_d, "between", point1, "and", point2, "bottom left", bottom_left)
     return worst_case_d
 
-def shortest_path_to_goal(terrains_grid, side_length, start, goal):
+def shortest_path_to_goal(terrains_grid, side_length, start, goal, proposed_plan):
     graph = Graph()
     edges = []
     start_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, start, side_length))
@@ -98,7 +98,19 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
         path = nodes
     else:
         pathinfo = find_path(graph, start_node, goal_node)
+        print("PATHINFO", pathinfo[0])
         path = pathinfo[0]
+        true_cost = 0
+        optimal_cost = 0
+        if (proposed_plan is not None):
+            # print(graph)
+            for i in range(len(proposed_plan) -1):
+                cur_node = proposed_plan[i]
+                next_node = proposed_plan[i+1]
+                print(cur_node, next_node)
+                true_cost += graph[cur_node][next_node]
+            print("true cost", true_cost)
+            optimal_cost = pathinfo[3]
 
     real_world_points = []
     indices = []
@@ -109,9 +121,9 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal):
         indices.append(i_to_xy(terrains_grid, node))
     print("Created trajectory")
 
-    return np.asarray(real_world_points), np.array(indices)
+    return path, np.asarray(real_world_points), np.array(indices), true_cost, optimal_cost
 
-def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, density=100, terrain_map=None, side_length=None):
+def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0.01, density=100, terrain_map=None, side_length=None, proposed_plan=None):
     """
     Plans a path from q_start to q_goal.
 
@@ -129,10 +141,10 @@ def plan_to_pose(q_start, q_goal, q_lb, q_ub, u_lb, u_ub, obs_list, N=1000, dt=0
     # path = np.array([[0,0], [1,1], [2,2], [3,3], [4,4]])
     if (side_length is None):
         side_length = q_ub[0] - q_lb[0]
-    path, indices = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal)
+    node_path, path, indices, true_cost, optimal_cost = shortest_path_to_goal(terrain_map, side_length, q_start, q_goal, proposed_plan)
     print("path", path)
     waypoints, inputs, n = path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density, dt)
-    return waypoints, inputs, n
+    return waypoints, inputs, n, node_path, true_cost, optimal_cost
 
 def path_to_trajectory(path, indices, q_start, q_goal, terrain_map, side_length, density=100, dt=0.05):
     # n = int((path.shape[0]-1)*density+1)
