@@ -91,7 +91,7 @@ def compute_estimator_error(estimate, truth):
                 average_error = (average_error + error)/2
 
     return average_error, errors
-    
+
 
 if __name__ == '__main__':
     rospy.init_node('planning', anonymous=False)
@@ -135,10 +135,10 @@ if __name__ == '__main__':
     u1_max = 0.5
 
     terrain_map_res = 5
-    controller = UnicycleModelController()
+    controller = UnicycleModelController(args.sim)
     rospy.sleep(1)
 
-    start = np.array(controller.state) 
+    start = np.array(controller.state)
     goal = np.array([args.x, args.y, args.theta])
 
     terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high, terrain_map_res)
@@ -219,7 +219,7 @@ if __name__ == '__main__':
             print(planner.optimal_plan.positions)
             print(plan.positions)
             print("difference from optimal", planner.true_cost - planner.optimal_cost)
-            
+
             print("Predicted Initial State")
             print(plan.start_position())
             print("Predicted Final State")

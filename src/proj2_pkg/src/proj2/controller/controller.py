@@ -18,7 +18,7 @@ from kernel_reg import ParameterEstimatorKernel
 TERRAIN_DIM = 1
 
 class UnicycleModelController(object):
-    def __init__(self):
+    def __init__(self, is_sim):
         """
         Executes a plan made by the planner
         """
@@ -31,8 +31,9 @@ class UnicycleModelController(object):
         self.d = 1
         self.k = 1
         self.debug_input = -0.8
+        self.is_sim = is_sim
 
-        using_real = False
+        using_real = not is_sim
         self.lower_state = np.array([-5.0, -5.0]) if using_real else np.zeros(2)
         rospy.on_shutdown(self.shutdown)
 
@@ -97,9 +98,9 @@ class UnicycleModelController(object):
         sys_id_count = 0
         sys_id_period = 1
         while not rospy.is_shutdown():
-            if (np.isnan(self.state[0])): 
+            if (np.isnan(self.state[0])):
                 print("nan'd")
-                continue 
+                continue
 
             t = (rospy.Time.now() - start_t).to_sec()
 
@@ -128,7 +129,7 @@ class UnicycleModelController(object):
             target_velocity = ((next_state - state)/dt)
 
             # random tests #
-            # target_acceleration=[0,0,0] 
+            # target_acceleration=[0,0,0]
             # target_velocity=(plan.positions[-1] - plan.positions[0])/plan.dt/len(plan)
             if np.linalg.norm(self.state - cur_state) > 0:
                 cur_velocity = (self.state - cur_state)/(t-prev_state_change_time)
@@ -168,7 +169,7 @@ class UnicycleModelController(object):
 
         self.d = np.dot(self.d_est, self.d_goal) / np.linalg.norm(self.d_est)**2
         self.k = np.dot(self.k_est, self.k_goal) / np.linalg.norm(self.k_est)**2
-        
+
     def estimate_parameters_gp(self, buffer):
         for i in range(len(self.d_est), len(buffer)):
             buffer_state = buffer[i]
@@ -192,7 +193,7 @@ class UnicycleModelController(object):
             visual_features = buffer_state[4]
 
             MAX_CAP = 2
-            
+
             measured_v_vec = np.squeeze(np.array([xdot, ydot]))
             measured_v = np.sqrt(xdot**2 + ydot**2)
             expected_velocity_vec = np.squeeze(np.array([v*np.cos(theta), v*np.sin(theta)]))
@@ -247,7 +248,7 @@ class UnicycleModelController(object):
         """Specify a control law. For the grad/EC portion, you may want
         to edit this part to write your own closed loop controller.
         Note that this class constantly subscribes to the state of the robot,
-        so the current configuratin of the robot is always stored in the 
+        so the current configuratin of the robot is always stored in the
         variable self.state. You can use this as your state measurement
         when writing your closed loop controller.
 
@@ -285,7 +286,10 @@ class UnicycleModelController(object):
         # control_input[1] = 3.0
         # print(control_input, np.linalg.norm(cur_velocity))
 
-        self.cmd(control_input) #self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
+        if self.is_sim:
+            self.cmd(self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
+        else:
+            self.cmd(control_input)
         return control_input
 
     def cmd(self, msg):
@@ -301,7 +305,7 @@ class UnicycleModelController(object):
     def subscribe(self, msg):
         """
         callback fn for state listener.  Don't call me...
-        
+
         Parameters
         ----------
         msg : :obj:`UnicycleStateMsg`
