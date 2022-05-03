@@ -62,6 +62,9 @@ def get_terrain_kd(terrain_map, controller):
                 kd_map[i, j] = [max(0.01, d), max(0.01, k)]
                 kd_aleatoric_map[i, j] = [max(0., d_aleatoric), max(0., k_aleatoric)]
                 kd_epistemic_map[i, j] = [max(0., d_uncertainty), max(0, k_uncertainty)]
+
+
+
     return kd_map, kd_aleatoric_map, kd_epistemic_map, np.max((np.zeros(kd_map.shape), kd_map - np.sqrt(kd_aleatoric_map)), axis=0)
 
 # def get_terrain_image(filename='/path/to/file'):
@@ -134,7 +137,7 @@ if __name__ == '__main__':
 
     u1_max = 0.5
 
-    terrain_map_res = 5
+    terrain_map_res = 1
     controller = UnicycleModelController()
     rospy.sleep(1)
 
@@ -142,6 +145,7 @@ if __name__ == '__main__':
     goal = np.array([args.x, args.y, args.theta])
 
     terrain_visual_features = get_terrain_map(terrains, xy_low, xy_high, terrain_map_res)
+    
     raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
 
     args.planner = 'opt'
@@ -178,6 +182,7 @@ if __name__ == '__main__':
         i = 0
         estimates = []
         optimal = []
+        all_plans = []
         while True:
             fig, (ax1, ax2) = plt.subplots(1, 2)
             ax1.set_title("Raw Terrain D Map")
@@ -212,7 +217,12 @@ if __name__ == '__main__':
                                         obstacles,
                                         0.15,start,goal,
                                         terrains=terrain_map)
-            planner = OptimizationPlanner(config, terrains_truth)
+
+            mask = np.random.randint(1,10, terrain_map.shape)
+
+            print(terrains_truth, terrains_truth.shape)
+
+            planner = OptimizationPlanner(config, terrains_truth, mask, all_plans)
 
             print(start)
             plan = planner.plan_to_pose(start, goal, dt=0.01, N=800)
@@ -225,7 +235,7 @@ if __name__ == '__main__':
             print("Predicted Final State")
             print(plan.end_position())
 
-            planner.plot_execution()
+            all_plans.append(planner.plot_execution())
 
             controller.execute_plan(plan, terrain_vectors=terrain_visual_features,
                                           terrain_map=terrain_map, terrain_map_res=terrain_map_res,
@@ -237,7 +247,7 @@ if __name__ == '__main__':
             goal = goals[counter % 2]
 
             saved_visual_featues = terrain_visual_features
-            raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller)
+            raw_terrain_map, terrain_aleatoric_map, terrain_epistemic_map, terrain_map = get_terrain_kd(terrain_visual_features, controller, terrains_truth)
             config.terrains = terrain_map
             abs_error, errors = compute_estimator_error(terrain_map[:,:,0], terrains_truth[:,:,0])
             print("estimator error", abs_error)

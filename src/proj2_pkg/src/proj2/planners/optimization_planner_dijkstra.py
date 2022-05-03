@@ -69,8 +69,8 @@ def shortest_path_to_goal(terrains_grid, side_length, start, goal, proposed_plan
     goal_node = xy_to_i(terrains_grid, position_to_grid(terrains_grid, goal, side_length))
     print("Start", position_to_grid(terrains_grid, start, side_length), "Goal", position_to_grid(terrains_grid, goal, side_length))
 
-    for i in range(len(terrains_grid)):
-        for j in range(len(terrains_grid[0])):
+    for i in range(1,len(terrains_grid)):
+        for j in range(1,len(terrains_grid[0])):
             current_node_idx = xy_to_i(terrains_grid, [i, j])
 
             for r in range(-1, 2):

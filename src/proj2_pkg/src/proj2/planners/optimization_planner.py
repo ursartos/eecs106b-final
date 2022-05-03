@@ -47,7 +47,7 @@ def make_plan(q_opt, u_opt, N, dt):
     return Plan(np.array(times), np.array(target_positions), np.array(open_loop_inputs), dt)
 
 class OptimizationPlanner(object):
-    def __init__(self, config_space, gt_terrains):
+    def __init__(self, config_space, gt_terrains, mas, all_plans):
         self.config_space = config_space
 
         self.input_low_lims = self.config_space.input_low_lims
@@ -56,6 +56,7 @@ class OptimizationPlanner(object):
         self.optimal_plan = None
         self.true_cost = None
         self.optimal_cost = None
+        self.all_plans = all_plans
 
     def plan_to_pose(self, start, goal, dt=0.01, N=1000):
         """
@@ -109,6 +110,7 @@ class OptimizationPlanner(object):
         components in the state space are x and y position. Also assumes 
         plan_to_pose has been called on this instance already.
         """
+
         ax = plt.subplot(1, 1, 1)
         ax.set_aspect(1)
         ax.set_xlim(self.config_space.low_lims[0], self.config_space.high_lims[0])
@@ -126,11 +128,14 @@ class OptimizationPlanner(object):
             ax.add_artist(rect)
 
         if self.plan:
-            plan_x = self.plan.positions[:, 0]
-            plan_y = self.plan.positions[:, 1]
-            ax.plot(plan_x, plan_y, color='green')
+            self.all_plans.append(self.plan)
+            for plan in self.all_plans:
+                plan_x = plan.positions[:, 0]
+                plan_y = plan.positions[:, 1]
+                ax.plot(plan_x, plan_y)
 
         plt.show()
+        return self.plan
 
 def main():
     """Use this function if you'd like to test without ROS.

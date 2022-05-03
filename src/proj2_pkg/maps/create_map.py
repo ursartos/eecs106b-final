@@ -105,10 +105,26 @@ def make_terrain_map2():
 	file.write(str(terrains_launch))
 	file.close()
 
+def make_terrain_map_converge():
+	x_len, y_len = 10, 10
+	terrains = []
+	terrains_launch = []
+	res=1
+	for i in range(res*x_len):
+		for j in range(res*y_len):
+			d = np.random.randint(2,10)/10.0
+			terrains.append([[i, i+1],[j,j+1], [d, 0], [1.0,0]])
+			terrains_launch.append([[i, i+1,j,j+1], [d,0],[1.0,0]])
+	create_map([], x_len, y_len, "terrains_random_converge", terrains=terrains_launch, resolution=0.01)
+	file = open("terrain_randmap.txt", "w")
+	file.write(str(terrains_launch))
+	file.close()
+
 if __name__ == '__main__':
 	# make_map1()
 	# make_map2()
-	make_empty_map()
+	# make_empty_map()
 	# make_terrain_map()
 	# make_two_terrains()
-	# make_terrain_map2()
+	make_terrain_map2()
+	make_terrain_map_converge()

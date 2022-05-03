@@ -32,8 +32,8 @@ class UnicycleModelController(object):
         self.k = 1
         self.debug_input = -0.8
 
-        using_real = False
-        self.lower_state = np.array([-5.0, -5.0]) if using_real else np.zeros(2)
+        self.using_real = False
+        self.lower_state = np.array([-5.0, -5.0]) if self.using_real else np.zeros(2)
         rospy.on_shutdown(self.shutdown)
 
     # def current_pos_to_terrain(self, pos, terrains):
@@ -64,6 +64,7 @@ class UnicycleModelController(object):
         k += dk
 
         mocked = [commanded[0] * d, commanded[1] * k]
+        print("mocked", d,k,mocked, commanded)
         return mocked
 
     def execute_plan(self, plan, terrain_vectors, terrain_map, terrain_map_res=1,
@@ -99,7 +100,7 @@ class UnicycleModelController(object):
         while not rospy.is_shutdown():
             if (np.isnan(self.state[0])): 
                 print("nan'd")
-                continue 
+                # continue 
 
             t = (rospy.Time.now() - start_t).to_sec()
 
@@ -119,6 +120,8 @@ class UnicycleModelController(object):
                 current_terrain_vector = terrain_vectors[tuple(rounded_coordinates)]
                 print("rounded coords", rounded_coordinates, current_terrain_vector, terrain_vectors.shape)
                 est_d, est_k = terrain_map[tuple(rounded_coordinates)]
+                est_k = max(0.2, est_k)
+                est_d = max(0.2, est_d)
             except Exception as e:
                 print(e)
                 print(terrain_map_res, self.state[:2], terrain_map_res * self.state[:2])
@@ -285,7 +288,10 @@ class UnicycleModelController(object):
         # control_input[1] = 3.0
         # print(control_input, np.linalg.norm(cur_velocity))
 
-        self.cmd(control_input) #self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
+        if (self.using_real):
+            self.cmd(control_input) #self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
+        else:
+            self.cmd(self.mock_velocity(cur_position, control_input, terrain_vector, terrains))
         return control_input
 
     def cmd(self, msg):
